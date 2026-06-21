@@ -78,7 +78,7 @@ export function validateSpend(
   for (const c of chain) {
     const cap = c.terms.perTxMax;
     if (cap !== undefined) {
-      const capAtoms = BigInt(cap.replace(".", "").padEnd(6 + cap.indexOf("."), "0"));
+      const capAtoms = termsAmountToAtoms(cap);
       if (req.amountAtoms > capAtoms) {
         throw new RefusalError("per_tx_exceeded", `amount exceeds the per-charge max of ${cap} USDC`, {
           card_id: c.id,
