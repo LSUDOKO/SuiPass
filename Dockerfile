@@ -16,11 +16,14 @@ COPY tsconfig.json tsconfig.json
 COPY packages/engine/tsconfig.json packages/engine/tsconfig.json
 COPY packages/server/tsconfig.json packages/server/tsconfig.json
 
+# Ensure SQLite directory exists (SUIPASS_DB_PATH=.dev/suipass.sqlite)
+RUN mkdir -p .dev
+
 # Copy source code
 COPY packages/engine/src packages/engine/src
 COPY packages/server/src packages/server/src
 
-# Railway injects PORT via env vars
+# Render injects PORT via env vars
 ENV PORT=4070
 EXPOSE 4070
 
