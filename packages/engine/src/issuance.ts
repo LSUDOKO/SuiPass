@@ -1,7 +1,7 @@
 // SuiPass: Card issuance — builds PTBs, records metadata.
 // Users sign via zkLogin; server sponsors gas and records the card in the store.
 
-import { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { GasSponsor } from "./sponsor";
 import { buildIssueRootCardPTB, buildIssueSubcardPTB } from "./ptb";
 import { RefusalError, EngineError } from "./errors";
@@ -18,7 +18,7 @@ export type IssuedCard = {
 
 export type IssuanceDeps = {
   store: Store;
-  suiClient: SuiClient;
+  suiClient: SuiJsonRpcClient;
   gasSponsor: GasSponsor;
   packageId: string;
   now?: () => number;
@@ -42,6 +42,9 @@ export async function issueRootCard(
   const expiry = BigInt(args.terms.expiry ?? 0);
   const merchants = args.terms.merchants ?? [];
 
+  const user = deps.store.getUser(args.userId);
+  if (!user) throw new RefusalError("card_not_found", "user not found");
+
   const tx = buildIssueRootCardPTB({
     name: args.name,
     budgetPeriodAmount,
@@ -51,14 +54,10 @@ export async function issueRootCard(
     maxUses,
     expiry,
     merchantAllowlist: merchants,
+    recipient: user.address,
   });
 
   const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
-
-  // Execute — the user signs via zkLogin in the browser flow.
-  // For server-side issuance (admin/mcp), the sponsor signs directly.
-  const user = deps.store.getUser(args.userId);
-  if (!user) throw new RefusalError("card_not_found", "user not found");
 
   const result = await deps.gasSponsor.executeTransaction(sponsored);
   if (result.error) {
@@ -87,6 +86,7 @@ export async function issueRootCard(
     terms: args.terms,
     cap_id: capObj.reference.objectId,
     card_obj_id: cardObj.reference.objectId,
+    freeze_marker_id: null,
     status: "active",
     usage_count: 0,
     created_at: now,
@@ -128,6 +128,9 @@ export async function issueSubCard(
   const expiry = BigInt(args.terms.expiry ?? 0);
   const merchants = args.terms.merchants ?? [];
 
+  const parentUser = store.getUser(parent.user_id);
+  const recipient = parentUser?.address ?? "";
+
   const tx = buildIssueSubcardPTB({
     parentCardId: parent.card_obj_id,
     parentCapId: parent.cap_id,
@@ -139,6 +142,7 @@ export async function issueSubCard(
     maxUses,
     expiry,
     merchantAllowlist: merchants,
+    recipient,
   });
 
   const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
@@ -167,6 +171,7 @@ export async function issueSubCard(
     terms: args.terms,
     cap_id: capObj.reference.objectId,
     card_obj_id: cardObj.reference.objectId,
+    freeze_marker_id: null,
     status: "active",
     usage_count: 0,
     created_at: now,

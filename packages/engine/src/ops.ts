@@ -4,7 +4,7 @@
 // Revoke = set is_revoked flag on Card object.
 // Nuke = revoke all user's cards server-side.
 
-import { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { GasSponsor } from "./sponsor";
 import { buildRevokeCardPTB, buildFreezeCardPTB, buildUnfreezeCardPTB } from "./ptb";
 import { RefusalError, EngineError } from "./errors";
@@ -12,7 +12,7 @@ import type { Store } from "./store";
 
 export type OpsDeps = {
   store: Store;
-  suiClient: SuiClient;
+  suiClient: SuiJsonRpcClient;
   gasSponsor: GasSponsor;
   packageId: string;
 };

@@ -1,7 +1,7 @@
 // SuiPass: Server dependency wiring (Sui edition)
-// Replaces: relayer + Privy + 1Shot with SuiClient + zkLogin + GasSponsor
+// Replaces: relayer + Privy + 1Shot with SuiJsonRpcClient + zkLogin + GasSponsor
 
-import { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { GasSponsor, KeyedMutex, Store } from "@suipass/engine";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import type { SpendDeps } from "@suipass/engine";
@@ -10,7 +10,7 @@ import { veniceChat, type ChatFn } from "./venice/client";
 
 export type AppDeps = {
   store: Store;
-  suiClient: SuiClient;
+  suiClient: SuiJsonRpcClient;
   gasSponsor: GasSponsor;
   packageId: string;
   verifyZkLoginToken: ZkLoginVerifier | null;
@@ -28,8 +28,9 @@ export function envInt(name: string, def: number): number {
 
 export function realDeps(): AppDeps {
   const store = new Store();
-  const suiClient = new SuiClient({
+  const suiClient = new SuiJsonRpcClient({
     url: process.env.SUIPASS_SUI_RPC_URL ?? "https://fullnode.testnet.sui.io:443",
+    network: (process.env.SUIPASS_SUI_NETWORK as "mainnet" | "testnet" | "devnet" | "localnet") ?? "testnet",
   });
 
   // Gas sponsor keypair from env (or generate for dev)

@@ -166,9 +166,9 @@ export async function assemble(
       continue;
     }
     haveContract = true;
-    targets.add(proto.entity.address.toLowerCase());
-    labels.push(proto.entity);
-    for (const s of proto.selectors) selectors.add(s);
+    targets.add(proto.address.toLowerCase());
+    labels.push(proto);
+    for (const s of proto.selectors ?? []) selectors.add(s);
 
     // Resolve sell token
     if (swap.sell) {
@@ -203,19 +203,15 @@ export async function assemble(
   }
 
   if (haveContract && targets.size && selectors.size) {
-    draft.contract = {
-      targets: [...targets],
-      selectors: [...selectors],
-      tokens: [...tokens],
-      ...(perTradeMax !== undefined ? { perTradeMax } : {}),
-    };
+    // Contract scope is tracked locally for warnings/labels; CardTerms doesn't have a contract field
+    if (perTradeMax !== undefined) draft.perTxMax = perTradeMax;
   }
 
   for (const u of plan.unsupported ?? []) {
     warnings.push(`not expressible: "${u}"`);
   }
 
-  if (!draft.pay && !draft.contract) {
+  if (!draft.pay) {
     return { draft: null, labels, warnings: warnings.length ? warnings : ["couldn't turn this request into any card terms"] };
   }
 

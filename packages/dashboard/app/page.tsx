@@ -5,7 +5,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { api, type CardTermsInput, type CompileLabel, type CompileResult } from "@/lib/api";
+import { api, type CardState, type CardTermsInput, type CompileLabel, type CompileResult, type TreeNode } from "@/lib/api";
 import { useRemit } from "./useRemit";
 import { Boot } from "./components/Boot";
 import { FirstRun } from "./components/FirstRun";
@@ -135,7 +135,7 @@ function Dashboard({
   address: string;
   onLogout: () => void;
 }) {
-  const [cards, setCards] = useState<Array<{ id: string; name: string; status: string; terms: CardTermsInput }>>([]);
+  const [cards, setCards] = useState<CardState[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [feed, setFeed] = useState<FeedRow[]>([]);
@@ -143,13 +143,16 @@ function Dashboard({
   const [issueOpen, setIssueOpen] = useState(false);
   const [touring, setTouring] = useState(false);
 
-  const specimen = useMemo<{ card: { id: string; name: string; status: string; terms: CardTermsInput; remaining_this_period?: string; remaining_lifetime?: string | null; period_resets_at?: number; expires_at?: number | null; uses_remaining?: number | null; subcards: string[] } }>(
+  const specimen = useMemo<TreeNode>(
     () => ({
       card: {
         id: "specimen",
         name: "specimen",
         status: "active",
         terms: { pay: { period: { amount: "25", seconds: 604800 } }, subcards: true },
+        card_obj_id: "",
+        cap_id: "",
+        created_at: 0,
         remaining_this_period: "18.40",
         remaining_lifetime: null,
         period_resets_at: Math.floor(Date.now() / 1000) + 4 * 86400 + 7 * 3600,
@@ -157,15 +160,16 @@ function Dashboard({
         uses_remaining: null,
         subcards: [],
       },
+      children: [],
     }),
     [],
   );
-  const showCards = touring && cards.length === 0 ? [specimen] : cards;
+  const showCards: TreeNode[] = touring && cards.length === 0 ? [specimen] : cards.map((c) => ({ card: c, children: [] }));
 
   const endTour = useCallback(() => setTouring(false), []);
   const tourIssue = useCallback(() => { setTouring(false); setIssueOpen(true); }, []);
 
-  const heroCard = (selId ? showCards.find((c) => c.id === selId) : undefined) ?? showCards.find((c) => !isDead(c.status)) ?? showCards[0] ?? null;
+  const heroCard = (selId ? showCards.find((c) => c.card.id === selId) : undefined) ?? showCards.find((c) => !isDead(c.card.status)) ?? showCards[0] ?? null;
 
   const refresh = useCallback(async () => {
     try {
@@ -220,7 +224,7 @@ function Dashboard({
         remit={remit}
         refresh={refresh}
         roots={showCards}
-        currentId={heroCard?.id ?? null}
+        currentId={heroCard?.card.id ?? null}
         onSelect={setSelId}
         onIssue={() => setIssueOpen(true)}
         onDeleted={() => { setSelId(null); return refresh(); }}

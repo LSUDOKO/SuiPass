@@ -2,7 +2,7 @@
 // Replaces the 1Shot relayer with Sui's native sponsored transactions.
 // The server holds a gas sponsor keypair and pays gas for every agent spend.
 
-import { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import { Transaction } from "@mysten/sui/transactions";
 import { SUI_CLIENT } from "./sui";
@@ -10,7 +10,7 @@ import { EngineError } from "./errors";
 
 export class GasSponsor {
   private keypair: Ed25519Keypair;
-  private client: SuiClient;
+  private client: SuiJsonRpcClient;
 
   constructor(secretKey?: Uint8Array) {
     if (secretKey) {

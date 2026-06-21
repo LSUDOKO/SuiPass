@@ -4,14 +4,12 @@
 // Replaces PrivyProvider with Sui dApp kit + custom zkLogin auth context.
 
 import { createNetworkConfig, SuiClientProvider, WalletProvider } from "@mysten/dapp-kit";
-import { getFullnodeUrl } from "@mysten/sui/client";
 import { MotionConfig } from "motion/react";
-import { SUI_RPC_URL } from "@/lib/chain";
 import { AuthProvider } from "./useAuth";
 
 const { networkConfig } = createNetworkConfig({
-  testnet: { url: getFullnodeUrl("testnet") },
-  mainnet: { url: getFullnodeUrl("mainnet") },
+  testnet: { url: "https://fullnode.testnet.sui.io:443", network: "testnet" },
+  mainnet: { url: "https://fullnode.mainnet.sui.io:443", network: "mainnet" },
 });
 
 export function Providers({ children }: { children: React.ReactNode }) {

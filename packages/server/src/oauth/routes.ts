@@ -424,5 +424,87 @@ export function oauthRoutes(deps: AppDeps, oauth: OAuthStore): Hono {
     return c.body(null, 200);
   });
 
+  // ---- Dashboard consent endpoints: /oauth/request/:id, /oauth/approve, /oauth/deny ----
+  // These are called by the dashboard's connect page (the card picker) after the user
+  // authenticates. The /authorize endpoint (above) redirected the agent here and stored
+  // the pending request. The dashboard reads the request, the user picks a card, and
+  // either approves or denies. On approve we mint a code and bounce to the client's
+  // redirect_uri; on deny we bounce with an access_denied error.
+
+  const CODE_TTL_S_APPROVE = 120;
+
+  app.get("/request/:id", async (c) => {
+    const row = oauth.getRequest(c.req.param("id")!);
+    if (!row) return c.json({ error: "request not found" }, 404);
+    return c.json({
+      request_id: row.request_id,
+      client_name: oauth.getClient(row.client_id)?.client_name ?? null,
+      redirect_host: (() => { try { return new URL(row.redirect_uri).hostname; } catch { return row.redirect_uri; } })(),
+      scope: row.scope,
+      expires_at: row.expires_at,
+    });
+  });
+
+  app.post("/approve", async (c) => {
+    const body = await c.req.json<{ request_id: string; card_id: string }>();
+    if (!body.request_id || !body.card_id) return c.json({ error: "request_id and card_id required" }, 400);
+
+    const request = oauth.getRequest(body.request_id);
+    if (!request) return c.json({ error: "request not found or expired" }, 404);
+
+    // Verify the card exists and is live
+    const card = deps.store.getCard(body.card_id);
+    if (!card) return c.json({ error: "card not found" }, 404);
+    if (card.status === "revoked" || card.status === "nuked") {
+      return c.json({ error: "card is revoked" }, 400);
+    }
+
+    // Mine the request if not yet claimed
+    oauth.bindRequestUser(body.request_id, "dashboard");
+
+    // Create the authorization code
+    const code = oauth.createCode(
+      {
+        client_id: request.client_id,
+        redirect_uri: request.redirect_uri,
+        code_challenge: request.code_challenge,
+        card_id: body.card_id,
+        user_id: request.user_id ?? "dashboard",
+        resource: request.resource,
+        scope: request.scope,
+      },
+      CODE_TTL_S_APPROVE,
+    );
+
+    // Burn the request so back-button replay shows nothing
+    oauth.deleteRequest(body.request_id);
+
+    // Build the redirect URI with the code and state
+    const redirectTo = appendRedirectParams(request.redirect_uri, {
+      code,
+      ...(request.state ? { state: request.state } : {}),
+    });
+
+    return c.json({ redirect_to: redirectTo });
+  });
+
+  app.post("/deny", async (c) => {
+    const body = await c.req.json<{ request_id: string }>();
+    if (!body.request_id) return c.json({ error: "request_id required" }, 400);
+
+    const request = oauth.getRequest(body.request_id);
+    if (!request) return c.json({ error: "request not found or expired" }, 404);
+
+    oauth.deleteRequest(body.request_id);
+
+    const redirectTo = appendRedirectParams(request.redirect_uri, {
+      error: "access_denied",
+      error_description: "The user denied the authorization request",
+      ...(request.state ? { state: request.state } : {}),
+    });
+
+    return c.json({ redirect_to: redirectTo });
+  });
+
   return app;
 }

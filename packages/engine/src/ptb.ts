@@ -16,6 +16,7 @@ export function buildIssueRootCardPTB(args: {
   maxUses: bigint;
   expiry: bigint;
   merchantAllowlist: string[];
+  recipient: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -38,7 +39,7 @@ export function buildIssueRootCardPTB(args: {
     ],
   });
 
-  tx.transferObjects([card, cap], tx.pure.address(tx.getSender()));
+  tx.transferObjects([card!, cap!], tx.pure.address(args.recipient));
 
   return tx;
 }
@@ -54,6 +55,7 @@ export function buildIssueSubcardPTB(args: {
   maxUses: bigint;
   expiry: bigint;
   merchantAllowlist: string[];
+  recipient: string;
 }): Transaction {
   const tx = new Transaction();
 
@@ -77,7 +79,7 @@ export function buildIssueSubcardPTB(args: {
     ],
   });
 
-  tx.transferObjects([card, cap], tx.pure.address(tx.getSender()));
+  tx.transferObjects([card!, cap!], tx.pure.address(args.recipient));
 
   return tx;
 }
@@ -168,7 +170,7 @@ export function buildDeepBookSwapPTB(args: {
   });
 
   // Send output coins to the recipient
-  tx.transferObjects([baseOut, quoteLeftover, deepLeftover], tx.pure.address(args.recipient));
+  tx.transferObjects([baseOut!, quoteLeftover!, deepLeftover!], tx.pure.address(args.recipient));
 
   return tx;
 }

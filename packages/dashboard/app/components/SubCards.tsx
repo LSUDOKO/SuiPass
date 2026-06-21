@@ -37,13 +37,13 @@ export function SubRows({
           const { spent } = allowance(c);
           const dead = isDead(c.status);
           return (
-            <Link key={c.card_id} href={`/card/${c.card_id}`} className={rowClass(c.status)}>
+            <Link key={c.id} href={`/card/${c.id}`} className={rowClass(c.status)}>
               <span className="thumb">
                 <Guilloche width={64} height={14} strands={5} amp={4.5} />
               </span>
               <span>
                 <span className="nm">{c.name}</span>
-                <span className="pan">{panGroups(kmap.get(c.card_id) ?? c.card_id).join(" ")}</span>
+                <span className="pan">{panGroups(kmap.get(c.id) ?? c.id).join(" ")}</span>
               </span>
               <span className="st">
                 <b />

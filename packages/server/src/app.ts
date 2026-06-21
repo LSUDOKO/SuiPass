@@ -7,9 +7,11 @@ import type { AppDeps } from "./deps";
 import { mcpRoutes } from "./mcp/routes";
 import { apiRoutes } from "./api/routes";
 import { oauthRoutes } from "./oauth/routes";
+import { OAuthStore } from "./oauth/store";
 
 export function createApp(deps: AppDeps): Hono {
   const app = new Hono();
+  const oauth = new OAuthStore(deps.store.db);
 
   // Global middleware
   app.use("*", cors({ origin: "*", allowHeaders: ["authorization", "content-type"], exposeHeaders: ["x-suipass-payment"] }));
@@ -21,7 +23,7 @@ export function createApp(deps: AppDeps): Hono {
   app.route("/api", apiRoutes(deps));
 
   // OAuth 2.1 authorization server
-  app.route("/oauth", oauthRoutes(deps));
+  app.route("/oauth", oauthRoutes(deps, oauth));
 
   // MCP routes (card-specific endpoints)
   app.route("/", mcpRoutes(deps));

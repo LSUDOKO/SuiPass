@@ -12,8 +12,7 @@
     "@hono/mcp": "^0.3.0",
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@suipass/engine": "workspace:*",
-    "@mysten/sui": "../../ts-sdks/packages/sui",
-    "@mysten/walrus": "../../ts-sdks/packages/walrus",
+    "@mysten/sui": "^2.0.0",
     "hono": "^4.11.3",
     "jose": "^6.2.3",
     "zod": "^3.25.0"

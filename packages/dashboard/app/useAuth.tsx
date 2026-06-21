@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .authStatus()
       .then((res) => {
         if (res.authed) {
-          setUser({ sub: res.userId ?? "", name: res.name, email: res.email, picture: res.picture });
+          setUser({ sub: res.userId ?? "", name: res.name, email: res.email, picture: res.picture as string | undefined });
           setAddress(res.address ?? null);
         } else {
           clearToken();
@@ -80,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .authStatus()
         .then((res) => {
           if (res.authed) {
-            setUser({ sub: res.userId ?? "", name: res.name, email: res.email, picture: res.picture });
+            setUser({ sub: res.userId ?? "", name: res.name, email: res.email, picture: res.picture as string | undefined });
             setAddress(res.address ?? null);
           }
         })

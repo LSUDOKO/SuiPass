@@ -1,5 +1,5 @@
 // SuiPass: Sui network configuration
-import { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 
 export type SuiNetwork = "mainnet" | "testnet" | "devnet" | "localnet";
 
@@ -8,7 +8,7 @@ export const SUI_NETWORK: SuiNetwork = (process.env.SUIPASS_SUI_NETWORK as SuiNe
 export const SUI_RPC_URL: string =
   process.env.SUIPASS_SUI_RPC_URL ?? "https://fullnode.testnet.sui.io:443";
 
-export const SUI_CLIENT = new SuiClient({ url: SUI_RPC_URL });
+export const SUI_CLIENT = new SuiJsonRpcClient({ url: SUI_RPC_URL, network: SUI_NETWORK });
 
 export const SUIPASS_PACKAGE_ID = process.env.SUIPASS_PACKAGE_ID!;
 
@@ -63,6 +63,22 @@ export const MOVE_ERROR_MAP: Record<number, string> = {
   11: "invalid_amount",
   12: "merchant_not_allowed",
 };
+
+// Find a coin of the given type owned by address with at least minBalance.
+export async function findSponsorCoin(
+  client: SuiJsonRpcClient,
+  owner: string,
+  coinType: string,
+  minBalance?: bigint,
+): Promise<string | null> {
+  const coins = await client.getCoins({ owner, coinType, limit: 10 });
+  for (const c of coins.data) {
+    if (minBalance === undefined || BigInt(c.balance) >= minBalance) {
+      return c.coinObjectId;
+    }
+  }
+  return null;
+}
 
 export function moveErrorToRefusal(errorCode: number): string {
   return MOVE_ERROR_MAP[errorCode] ?? "unknown_error";

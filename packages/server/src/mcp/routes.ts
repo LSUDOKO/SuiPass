@@ -5,6 +5,7 @@ import { Hono } from "hono";
 import type { AppDeps } from "../deps";
 import { buildMcpServer } from "./server";
 import { hashCardSecret } from "@suipass/engine";
+import { StreamableHTTPTransport } from "@hono/mcp";
 
 export function mcpRoutes(deps: AppDeps): Hono {
   const app = new Hono();
@@ -20,11 +21,9 @@ export function mcpRoutes(deps: AppDeps): Hono {
     }
 
     const server = buildMcpServer(deps, card);
-
-    // MCP Streamable HTTP transport
-    const body = await c.req.json();
-    const response = await server.handleRequest(body);
-    return c.json(response);
+    const transport = new StreamableHTTPTransport();
+    await server.connect(transport);
+    return transport.handleRequest(c);
   });
 
   // MCP over SSE or GET (basic info)

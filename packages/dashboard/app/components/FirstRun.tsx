@@ -10,11 +10,11 @@
 
 import { useEffect, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { SUI_RPC_URL, USDC_COIN_TYPE } from "@/lib/chain";
 import { copyText, IconCheck, IconCopy } from "./ui";
 
-const suiClient = new SuiClient({ url: SUI_RPC_URL });
+const suiClient = new SuiJsonRpcClient({ url: SUI_RPC_URL, network: "testnet" });
 
 const swapEase = [0.22, 1, 0.36, 1] as const;
 

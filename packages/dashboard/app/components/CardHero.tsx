@@ -34,6 +34,7 @@ export function CardHero({
   const pan = panGroups(agentAddress ?? card.id);
   const exp = null;
   const brand = null;
+  const visa = null as { cvc: string } | null;
 
   const onMove = (e: React.MouseEvent) => {
     const el = flipRef.current;

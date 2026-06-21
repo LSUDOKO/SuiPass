@@ -5,31 +5,28 @@
 
 import { use, useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { api, type CardState, type Charge, type TreeNode } from "@/lib/api";
+import { api, type CardState, type TreeNode, type Charge } from "@/lib/api";
 import { useRemit } from "../../useRemit";
 import { Cockpit } from "../../components/Shell";
 import { Dossier } from "../../components/Dossier";
 import type { FeedRow } from "../../components/Activity";
-
-type Detail = CardState & { charges: Charge[]; k_agent_address: string };
 
 export default function CardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
   const router = useRouter();
   const remit = useRemit();
   const { address, logout } = remit;
-  const [card, setCard] = useState<Detail | null>(null);
-  const [kids, setKids] = useState<Detail[]>([]);
+  const [card, setCard] = useState<CardState | null>(null);
+  const [kids, setKids] = useState<CardState[]>([]);
+  const [charges, setCharges] = useState<FeedRow[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // Sibling navigation (/card/A -> /card/B) reuses this component instance:
-  // drop A's data immediately and refuse any of A's still-in-flight responses,
-  // or B's URL would briefly show A's authority and charges.
   const idRef = useRef(id);
   useEffect(() => {
     if (idRef.current !== id) {
       setCard(null);
       setKids([]);
+      setCharges([]);
       setMsg(null);
     }
     idRef.current = id;
@@ -39,10 +36,15 @@ export default function CardPage({ params }: { params: Promise<{ id: string }> }
     const want = id;
     try {
       const d = await api.card(want);
-      const ks = await Promise.all(d.subcards.map((kid) => api.card(kid).catch(() => null)));
-      if (idRef.current !== want) return; // stale response for a previous card
+      const [chRes, ...ksRes] = await Promise.all([
+        api.cardCharges(want).catch(() => ({ charges: [] })),
+        ...(d.subcards ?? []).map((kid) => api.card(kid).catch(() => null)),
+      ]);
+      if (idRef.current !== want) return;
       setCard(d);
-      setKids(ks.filter((k): k is Detail => k !== null));
+      const liveKids = ksRes.filter((k): k is CardState => k !== null);
+      setKids(liveKids);
+      setCharges(chRes.charges.map((ch) => ({ ch, cardName: d.name })));
       setMsg(null);
     } catch (e) {
       if (idRef.current === want) setMsg(e instanceof Error ? e.message : String(e));
@@ -65,15 +67,11 @@ export default function CardPage({ params }: { params: Promise<{ id: string }> }
     );
   }
 
-  // synthesize the tree node + feed from the per-card details
   const node: TreeNode = { card, children: kids.map((k) => ({ card: k, children: [] })) };
-  const kmap = new Map<string, string>([
-    [card.card_id, card.k_agent_address],
-    ...kids.map((k): [string, string] => [k.card_id, k.k_agent_address]),
-  ]);
+  const kmap = new Map<string, string>();
   const feed: FeedRow[] = [
-    ...card.charges.map((ch) => ({ ch, cardName: card.name })),
-    ...kids.flatMap((k) => k.charges.map((ch) => ({ ch, cardName: k.name }))),
+    ...charges,
+    ...kids.flatMap((k) => ([] as FeedRow[])),
   ].sort((a, b) => b.ch.at - a.ch.at);
 
   return (
@@ -82,9 +80,8 @@ export default function CardPage({ params }: { params: Promise<{ id: string }> }
       remit={remit}
       refresh={refresh}
       onLogout={logout}
-      address={address}
+      address={address ?? undefined}
     >
-      {/* the page h1 lives invisibly in the test contract: status surfaces here */}
       <h1 data-testid="card-status" data-status={card.status} style={{ position: "absolute", left: -9999, top: 0 }}>
         {card.name}
       </h1>
@@ -97,13 +94,11 @@ export default function CardPage({ params }: { params: Promise<{ id: string }> }
 
       <Dossier
         node={node}
-        kAgent={card.k_agent_address}
-        kmap={kmap}
         feed={feed}
         remit={remit}
         refresh={refresh}
         roots={[node]}
-        currentId={card.card_id}
+        currentId={card.id}
         onDeleted={() => router.replace("/")}
       />
     </Cockpit>

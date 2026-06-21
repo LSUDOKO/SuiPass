@@ -71,7 +71,7 @@ export function Dossier({
 }: {
   node: TreeNode | null; // the selected card + its direct children
   kAgent?: string;
-  kmap: Map<string, string>;
+  kmap?: Map<string, string>;
   feed: FeedRow[];
   remit: Remit;
   refresh: () => void | Promise<void>;
@@ -83,14 +83,14 @@ export function Dossier({
 }) {
   const card = node?.card ?? null;
   const dead = card ? isDead(card.status) : false;
-  const heroId = card?.card_id ?? "";
+  const heroId = card?.id ?? "";
 
   // the bottom pane toggle survives card swaps (compare terms across cards)
   const [tab, setTab] = useState<Tab>("activity");
 
   // the linked test-mode Visa per card (owner view) · fetched once per card,
   // cached for the session so swapping back never flickers the PAN
-  const [fiatMap] = useState<Map<string, never>>(new Map());
+  const [fiatMap] = useState<Map<string, never>>(new Map<string, never>());
 
   // Connect state lives here so the verb can open the credential overlay ·
   // the page never moves. Switching cards drops the previous credential.
@@ -156,10 +156,10 @@ export function Dossier({
           </div>
         )}
 
-        <Carousel
+          <Carousel
           roots={roots}
           currentId={currentId ?? heroId}
-          kmap={kmap}
+          kmap={kmap ?? new Map()}
           kAgent={kAgent}
           fiatMap={fiatMap}
           onSelect={onSelect}
@@ -231,7 +231,7 @@ export function Dossier({
             >
               {tab === "activity" && <ActivityPane card={card} feed={feed} />}
               {tab === "terms" && card && <TermsPane card={card} kAgent={kAgent} />}
-              {tab === "subs" && card && node && <SubsPane card={card} node={node} kmap={kmap} />}
+              {tab === "subs" && card && node && <SubsPane card={card} node={node} kmap={kmap ?? new Map<string, string>()} />}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -550,8 +550,6 @@ function Verbs({
           cardId={card.id}
           isSub={!!card.parent_card_id}
           revocable={!dead}
-          signDelegation={remit.signDelegation}
-          embeddedReady={remit.embeddedReady}
           onDone={refresh}
         />
         {/* a dead card's one remaining verb: leave the books */}

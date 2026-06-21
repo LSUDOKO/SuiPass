@@ -133,7 +133,7 @@ function Consent() {
         const [i, cs] = await Promise.all([api.oauthRequest(requestId), api.cards()]);
         setInfo(i);
         // only live cards are grantable; frozen still answers (spends refuse until unfrozen)
-        setCards(cs.filter((c) => c.status === "active" || c.status === "frozen"));
+        setCards(cs.cards.filter((c) => c.status === "active" || c.status === "frozen"));
       } catch (e) {
         setErr(e instanceof Error ? e.message : String(e));
       }
@@ -266,16 +266,16 @@ function Consent() {
         <>
           <div role="radiogroup" aria-label="Card to grant" style={{ display: "flex", flexDirection: "column", gap: 8, margin: "14px 0" }}>
             {cards.map((c) => {
-              const on = picked === c.card_id;
+              const on = picked === c.id;
               return (
                 <div
-                  key={c.card_id}
+                  key={c.id}
                   role="radio"
                   aria-checked={on}
                   tabIndex={0}
                   data-testid={`pick-${c.name}`}
-                  onClick={() => setPicked(c.card_id)}
-                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPicked(c.card_id); } }}
+                  onClick={() => setPicked(c.id)}
+                  onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setPicked(c.id); } }}
                   style={{
                     display: "flex",
                     alignItems: "center",
@@ -303,8 +303,8 @@ function Consent() {
                     <span className={`chip ${c.status}`}>{capWord(c.status)}</span>
                     <br />
                     <span style={{ color: "var(--label)", fontSize: 12 }}>
-                      {c.remaining_this_period !== null && `${c.remaining_this_period} USDC left this period`}
-                      {c.remaining_this_period === null && c.remaining_lifetime !== null && `${c.remaining_lifetime} USDC lifetime left`}
+                      {c.remaining_this_period != null && c.remaining_this_period !== "" && `${c.remaining_this_period} USDC left this period`}
+                      {(c.remaining_this_period == null || c.remaining_this_period === "") && c.remaining_lifetime != null && c.remaining_lifetime !== "" && `${c.remaining_lifetime} USDC lifetime left`}
                     </span>
                   </span>
                 </div>

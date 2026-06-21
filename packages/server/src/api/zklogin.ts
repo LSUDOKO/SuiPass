@@ -4,7 +4,6 @@
 // -> derives Sui address from JWT sub claim.
 
 import { jwtVerify, createRemoteJWKSet } from "jose";
-import { SuiClient } from "@mysten/sui/client";
 import { SUI_CLIENT } from "@suipass/engine";
 
 const GOOGLE_JWKS = createRemoteJWKSet(

@@ -154,38 +154,22 @@ export function RevokeButton({
   cardId,
   isSub,
   revocable,
-  signDelegation,
-  embeddedReady,
   onDone,
 }: {
   cardId: string;
   isSub: boolean;
   revocable: boolean;
-  signDelegation: Remit["signDelegation"];
-  embeddedReady: boolean;
   onDone: () => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
   const [phase, setPhase] = useState<DangerPhase>("confirm");
-  const [stage, setStage] = useState<"signing" | "submitting">("signing");
-  const [tx, setTx] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
 
   async function go() {
     setErr(null);
     try {
       setPhase("busy");
-      setStage(isSub ? "submitting" : "signing");
-      const prep = await api.prepareRevoke(cardId);
-      if (!("prepare_id" in prep)) {
-        setPhase("done");
-        await onDone();
-        return;
-      }
-      const signature = await signDelegation(prep.delegation);
-      setStage("submitting");
-      const fin = await api.finalizeRevoke(cardId, prep.prepare_id, signature);
-      setTx(fin.tx);
+      await api.revoke(cardId);
       setPhase("done");
       await onDone();
     } catch (e) {
@@ -198,10 +182,10 @@ export function RevokeButton({
     <>
       <button
         className="vpill danger"
-        disabled={!revocable || (!isSub && !embeddedReady)}
+        disabled={!revocable}
         onClick={() => setOpen(true)}
         data-testid="revoke"
-        title={isSub ? "Revoke · server-side kill, instant" : "Revoke · on-chain disableDelegation, signed by your embedded wallet"}
+        title={isSub ? "Revoke · server-side kill, instant" : "Revoke · kills the card and its descendants"}
       >
         <IconRevoke size={13} />
         Revoke
@@ -217,18 +201,9 @@ export function RevokeButton({
             : "Permanently revokes the delegation on-chain. Every sub-card carved from it dies with it: the whole subtree, one transaction."
         }
         confirmLabel="Yes, Revoke"
-        busyNote={stage === "signing" ? "Signing with your wallet…" : isSub ? "Killing server-side…" : "Submitting on-chain…"}
+        busyNote="Revoking…"
         doneTitle="Card Revoked"
-        doneNote={
-          <>
-            Revoked. The authority is dead.{" "}
-            {tx && (
-              <a href={`https://basescan.org/tx/${tx}`} target="_blank" rel="noreferrer" style={{ color: "var(--accent)" }}>
-                {shortHex(tx, 10, 0)}
-              </a>
-            )}
-          </>
-        }
+        doneNote="Revoked. The authority is dead."
         errorNote={err ? `Revoke failed: ${err}` : undefined}
         onConfirm={go}
         onClose={() => {

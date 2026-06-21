@@ -7,7 +7,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "motion/react";
-import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { api } from "@/lib/api";
 import { SUI_RPC_URL, USDC_COIN_TYPE } from "@/lib/chain";
 import type { useRemit } from "../useRemit";
@@ -17,7 +17,7 @@ import { DangerModal, type DangerPhase } from "./Confirm";
 
 type Remit = ReturnType<typeof useRemit>;
 
-const suiClient = new SuiClient({ url: SUI_RPC_URL });
+const suiClient = new SuiJsonRpcClient({ url: SUI_RPC_URL, network: "testnet" });
 
 export function Cockpit({
   back,

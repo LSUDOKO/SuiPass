@@ -2,9 +2,9 @@
 // Validates against stored state (mirrors on-chain checks), builds a PTB,
 // sponsors gas, executes, and returns a receipt.
 
-import type { SuiClient } from "@mysten/sui/client";
+import type { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import type { Transaction } from "@mysten/sui/transactions";
-import { SUI_CLIENT, SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, moveErrorToRefusal } from "./sui";
+import { SUI_CLIENT, USDC_COIN_TYPE, moveErrorToRefusal, findSponsorCoin } from "./sui";
 import { buildSpendPTB, buildLogChargePTB } from "./ptb";
 import { GasSponsor } from "./sponsor";
 import { RefusalError, EngineError } from "./errors";
@@ -28,7 +28,7 @@ export type SpendRequest = {
 
 export type SpendDeps = {
   store: Store;
-  suiClient: SuiClient;
+  suiClient: SuiJsonRpcClient;
   gasSponsor: GasSponsor;
   packageId: string;
   now?: () => number;
@@ -182,6 +182,16 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
   // Validate against stored state
   validateSpend(deps, chain, req, amountAtoms, now);
 
+  // Auto-discover USDC coin if not specified
+  const usdcCoinId =
+    req.usdcCoinId ??
+    (await findSponsorCoin(client, deps.gasSponsor.sponsorAddress, USDC_COIN_TYPE, amountAtoms)) ??
+    "";
+
+  if (!usdcCoinId) {
+    throw new RefusalError("invalid_terms", "sponsor has insufficient USDC for this payment");
+  }
+
   // Build PTB
   const tx = buildSpendPTB({
     cardId: card.id,
@@ -190,7 +200,7 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
     recipient,
     merchant,
     memo: req.memo ?? "",
-    usdcCoinId: req.usdcCoinId ?? "",
+    usdcCoinId,
   });
 
   // Sponsor gas

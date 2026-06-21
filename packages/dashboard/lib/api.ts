@@ -105,6 +105,13 @@ export type CardState = {
   card_obj_id: string;
   cap_id: string;
   created_at: number;
+  parent_card_id?: string;
+  remaining_this_period?: string | null;
+  remaining_lifetime?: string | null;
+  period_resets_at?: number | null;
+  expires_at?: number | null;
+  uses_remaining?: number | null;
+  subcards?: string[];
 };
 
 export type Charge = {
@@ -130,11 +137,28 @@ export type CardWithCharges = CardState & {
 };
 
 export const api = {
-  authStatus: () => call<{ authed: boolean; userId?: string; address?: string; name?: string; email?: string }>("/auth/status"),
+  authStatus: () => call<{ authed: boolean; userId?: string; address?: string; name?: string; email?: string; picture?: string }>("/auth/status"),
 
   onboard: () =>
     call<{ onboarded: boolean; userId: string; address: string }>("/onboard", {
       method: "POST",
+    }),
+
+  oauthRequest: (requestId: string) =>
+    call<{ request_id: string; client_name: string | null; redirect_host: string; scope: string | null; expires_at: number }>(
+      "/oauth/request/" + encodeURIComponent(requestId),
+    ),
+
+  oauthApprove: (requestId: string, cardId: string) =>
+    call<{ redirect_to: string }>("/oauth/approve", {
+      method: "POST",
+      body: JSON.stringify({ request_id: requestId, card_id: cardId }),
+    }),
+
+  oauthDeny: (requestId: string) =>
+    call<{ redirect_to: string }>("/oauth/deny", {
+      method: "POST",
+      body: JSON.stringify({ request_id: requestId }),
     }),
 
   compile: (prompt: string) =>
@@ -168,4 +192,16 @@ export const api = {
 
   revoke: (id: string) =>
     call<{ revoked: boolean }>("/cards/" + encodeURIComponent(id) + "/revoke", { method: "POST" }),
+
+  prepareRevoke: (cardId: string) =>
+    call<{ prepare_id: string; delegation: string } | Record<string, never>>("/cards/" + encodeURIComponent(cardId) + "/prepare-revoke"),
+
+  finalizeRevoke: (cardId: string, prepareId: string, signature: string) =>
+    call<{ tx: string }>("/cards/" + encodeURIComponent(cardId) + "/finalize-revoke", {
+      method: "POST",
+      body: JSON.stringify({ prepare_id: prepareId, signature }),
+    }),
+
+  deleteCard: (cardId: string) =>
+    call<{ deleted: boolean }>("/cards/" + encodeURIComponent(cardId), { method: "DELETE" }),
 };

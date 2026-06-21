@@ -6,8 +6,16 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { RefusalError, EngineError } from "@suipass/engine";
 import type { AppDeps } from "../deps";
-import { verifyAuthHeader } from "./zklogin";
+import { verifyAuthHeader, type ZkLoginPayload } from "./zklogin";
 import type { CardTerms } from "@suipass/engine";
+
+declare module "hono" {
+  interface ContextVariableMap {
+    userId: string | null;
+    userAddress: string | null;
+    zkPayload: ZkLoginPayload | null;
+  }
+}
 
 export function apiRoutes(deps: AppDeps): Hono {
   const app = new Hono();
@@ -107,8 +115,8 @@ export function apiRoutes(deps: AppDeps): Hono {
     const body = await c.req.json<{ prompt: string }>();
     if (!body.prompt) return c.json({ error: "prompt required" }, 400);
 
-    const { compileCard } = await import("../venice/compiler");
-    const result = await compileCard(deps.veniceChat, body.prompt);
+const { compileIntent } = await import("../venice/compiler");
+const result = await compileIntent(body.prompt, { chat: deps.veniceChat, resolvers: (await import("../venice/resolvers")).registryResolvers() });
     return c.json(result);
   });
 

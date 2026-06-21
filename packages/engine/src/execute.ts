@@ -1,9 +1,9 @@
-import { SuiClient } from "@mysten/sui/client";
+import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { GasSponsor } from "./sponsor";
 import { buildDeepBookSwapPTB, buildLogChargePTB } from "./ptb";
 import { RefusalError, EngineError } from "./errors";
 import { atomsToUsdc } from "./terms";
-import { moveErrorToRefusal } from "./sui";
+import { findSponsorCoin, moveErrorToRefusal } from "./sui";
 import {
   SUI_CLIENT,
   USDC_COIN_TYPE,
@@ -30,26 +30,11 @@ export type ExecuteRequest = {
 
 export type ExecuteDeps = {
   store: Store;
-  suiClient: SuiClient;
+  suiClient: SuiJsonRpcClient;
   gasSponsor: GasSponsor;
   packageId: string;
   now?: () => number;
 };
-
-async function getSponsorCoin(
-  client: SuiClient,
-  sponsorAddress: string,
-  coinType: string,
-  minBalance?: bigint,
-): Promise<string | null> {
-  const coins = await client.getCoins({ owner: sponsorAddress, coinType, limit: 10 });
-  for (const c of coins.data) {
-    if (minBalance === undefined || BigInt(c.balance) >= minBalance) {
-      return c.coinObjectId;
-    }
-  }
-  return null;
-}
 
 export async function executeOperation(
   deps: ExecuteDeps,
@@ -85,15 +70,18 @@ export async function executeOperation(
 
   const sponsorAddress = deps.gasSponsor.sponsorAddress;
 
-  const usdcCoinId = await getSponsorCoin(client, sponsorAddress, USDC_COIN_TYPE, req.amountAtoms);
+  const usdcCoinId = await findSponsorCoin(client, sponsorAddress, USDC_COIN_TYPE, req.amountAtoms);
   if (!usdcCoinId) {
     throw new RefusalError("invalid_terms", "sponsor has insufficient USDC for this swap");
   }
 
-  const deepCoinId = await getSponsorCoin(client, sponsorAddress, DEEP_COIN_TYPE, 10_000_000n);
+  const deepCoinId = await findSponsorCoin(client, sponsorAddress, DEEP_COIN_TYPE, 10_000_000n);
   if (!deepCoinId) {
     throw new RefusalError("invalid_terms", "sponsor has no DEEP tokens for swap fee");
   }
+
+  const user = store.getUser(card.user_id);
+  const recipient = user?.address ?? sponsorAddress;
 
   const poolId = req.poolId ?? DEEPBOOK_DEFAULT_POOL;
   const minBaseOut = req.minOutAtoms ?? 0n;
@@ -105,7 +93,7 @@ export async function executeOperation(
     minBaseOut,
     quoteCoinType: req.sellCoinType,
     baseCoinType: req.buyCoinType,
-    recipient: card.owner,
+    recipient,
   });
 
   const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
