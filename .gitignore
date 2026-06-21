@@ -32,3 +32,15 @@ PLAN.md
 packages/*/scripts/*.workflow.js
 .claude/reviews/
 .claude/agents/sub-agent.md
+
+# local ts-sdks fork and sui binaries (switched to npm @mysten/sui)
+ts-sdks/
+sui-debug
+sui-node
+sui-tool
+sui-fork
+sui-bridge
+sui-bridge-cli
+
+# EVM-era leftovers
+harness-privy/
