@@ -1,0 +1,12 @@
+node_modules
+.git
+.gitignore
+*.md
+.env
+.env.example
+probes
+harness-privy
+packages/dashboard/.next
+packages/dashboard/node_modules
+packages/dashboard/.env
+packages/dashboard/package-lock.json
