@@ -25,6 +25,7 @@ export type CardRow = {
   terms: CardTerms;
   cap_id: string;          // CardCap object ID on Sui
   card_obj_id: string;     // Card object ID on Sui
+  freeze_marker_id: string | null;  // FreezeMarker object ID (null if not frozen)
   status: CardStatus;
   usage_count: number;
   created_at: number;
@@ -92,6 +93,7 @@ export class Store {
         terms_json TEXT NOT NULL,
         cap_id TEXT NOT NULL,
         card_obj_id TEXT NOT NULL,
+        freeze_marker_id TEXT,
         status TEXT NOT NULL DEFAULT 'active',
         usage_count INTEGER NOT NULL DEFAULT 0,
         created_at INTEGER NOT NULL
@@ -169,9 +171,9 @@ export class Store {
   createCard(c: Omit<CardRow, "terms"> & { terms: CardTerms }): void {
     this.db
       .query(
-        `INSERT INTO cards (id, user_id, parent_card_id, name, secret_hash, secret_enc, terms_json,
-                            cap_id, card_obj_id, status, usage_count, created_at)
-         VALUES ($id, $user, $parent, $name, $hash, $senc, $terms, $cap, $obj, $status, $usage, $created)`,
+         `INSERT INTO cards (id, user_id, parent_card_id, name, secret_hash, secret_enc, terms_json,
+                             cap_id, card_obj_id, freeze_marker_id, status, usage_count, created_at)
+          VALUES ($id, $user, $parent, $name, $hash, $senc, $terms, $cap, $obj, $fmarker, $status, $usage, $created)`,
       )
       .run({
         $id: c.id,
@@ -183,6 +185,7 @@ export class Store {
         $terms: JSON.stringify(c.terms),
         $cap: c.cap_id,
         $obj: c.card_obj_id,
+        $fmarker: c.freeze_marker_id ?? null,
         $status: c.status,
         $usage: c.usage_count,
         $created: c.created_at,
@@ -201,6 +204,7 @@ export class Store {
       terms: JSON.parse(r.terms_json as string),
       cap_id: r.cap_id as string,
       card_obj_id: r.card_obj_id as string,
+      freeze_marker_id: (r.freeze_marker_id as string) ?? null,
       status: r.status as CardStatus,
       usage_count: (r.usage_count as number) ?? 0,
       created_at: r.created_at as number,
@@ -254,6 +258,14 @@ export class Store {
 
   setCardStatus(cardId: string, status: CardStatus): void {
     this.db.query(`UPDATE cards SET status = $s WHERE id = $id`).run({ $s: status, $id: cardId });
+  }
+
+  setFreezeMarker(cardId: string, markerId: string): void {
+    this.db.query(`UPDATE cards SET freeze_marker_id = $m, status = 'frozen' WHERE id = $id`).run({ $m: markerId, $id: cardId });
+  }
+
+  clearFreezeMarker(cardId: string): void {
+    this.db.query(`UPDATE cards SET freeze_marker_id = NULL, status = 'active' WHERE id = $id`).run({ $id: cardId });
   }
 
   setSubtreeStatus(cardId: string, status: CardStatus): void {

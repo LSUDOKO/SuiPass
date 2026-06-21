@@ -34,7 +34,16 @@ export async function freezeCard(deps: OpsDeps, cardId: string): Promise<AdminOp
     throw new EngineError("ops", `freeze failed: ${result.error}`);
   }
 
-  deps.store.setCardStatus(cardId, "frozen");
+  // Extract FreezeMarker object ID from created objects
+  const created = result.effects?.created as Array<{ reference: { objectId: string } }> | undefined;
+  const markerId = created?.[0]?.reference?.objectId;
+
+  if (markerId) {
+    deps.store.setFreezeMarker(cardId, markerId);
+  } else {
+    deps.store.setCardStatus(cardId, "frozen");
+  }
+
   return { txHash: result.digest, digest: result.digest };
 }
 
@@ -43,11 +52,20 @@ export async function unfreezeCard(deps: OpsDeps, cardId: string): Promise<Admin
   if (!card) throw new RefusalError("card_not_found", "no such card");
   if (card.status !== "frozen") throw new RefusalError("invalid_terms", `card is ${card.status}, not frozen`);
 
-  // Find the FreezeMarker object for this card
-  // In production, we store the freeze_marker_id in the card table
-  // For simplicity here, we just update the status server-side
-  // The on-chain FreezeMarker cleanup is a separate operation
+  if (card.freeze_marker_id) {
+    const tx = buildUnfreezeCardPTB({ freezeMarkerId: card.freeze_marker_id });
+    const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+    const result = await deps.gasSponsor.executeTransaction(sponsored);
 
+    if (result.error) {
+      throw new EngineError("ops", `unfreeze on-chain failed: ${result.error}`);
+    }
+
+    deps.store.clearFreezeMarker(cardId);
+    return { txHash: result.digest, digest: result.digest };
+  }
+
+  // No on-chain marker found — just update server-side status
   deps.store.setCardStatus(cardId, "active");
   return { txHash: null };
 }

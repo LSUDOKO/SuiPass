@@ -340,3 +340,30 @@ export function cardState(store: Store, cardId: string, now: number): {
     subcards: store.listChildren(cardId).map((c) => c.id),
   };
 }
+
+async function fireChargeLog(
+  deps: SpendDeps,
+  cardId: string,
+  card: CardRow,
+  amountAtoms: bigint,
+  recipient: string,
+  req: SpendRequest,
+  txDigest: string,
+): Promise<void> {
+  const logTx = buildLogChargePTB({
+    cardId: card.id,
+    capId: card.cap_id,
+    amount: amountAtoms,
+    fee: 0n,
+    recipient,
+    memo: req.memo ?? "",
+    txDigest,
+  });
+
+  const sponsored = await deps.gasSponsor.sponsorTransaction(logTx);
+  const logResult = await deps.gasSponsor.executeTransaction(sponsored);
+
+  if (logResult.error) {
+    console.warn(`[spend] log_charge tx failed (digest: ${logResult.digest}): ${logResult.error}`);
+  }
+}
