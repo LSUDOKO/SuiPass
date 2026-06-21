@@ -204,4 +204,13 @@ export const api = {
 
   deleteCard: (cardId: string) =>
     call<{ deleted: boolean }>("/cards/" + encodeURIComponent(cardId), { method: "DELETE" }),
+
+  nuke: () =>
+    call<{ nuked: boolean }>("/nuke", { method: "POST" }),
+
+  exportKey: () => {
+    const key = prompt("Export your zkLogin key to use elsewhere? This will be available until you sign out.");
+    if (key) alert("Key export is a placeholder in this build. Use the dashboard to manage your cards.");
+    return Promise.resolve();
+  },
 };

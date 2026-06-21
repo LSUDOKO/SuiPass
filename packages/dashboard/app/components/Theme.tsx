@@ -24,12 +24,8 @@ export function ThemeToggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     const apply = () => {
       document.documentElement.dataset.theme = next;
-      // the browser-chrome tint follows the chosen theme (the inline boot
-      // script created this meta; layout.tsx deliberately ships none)
       document.querySelector('meta[name="theme-color"]')?.setAttribute("content", next === "dark" ? "#141417" : "#f7f7f8");
-      try {
-        localStorage.setItem("remit-theme", next);
-      } catch {}
+      try { localStorage.setItem("suipass-theme", next); } catch {}
       setTheme(next);
     };
     const doc = document as Document & { startViewTransition?: (cb: () => void) => void };
@@ -49,8 +45,8 @@ export function ThemeToggle() {
       data-testid="theme-toggle"
     >
       <motion.svg
-        width="17"
-        height="17"
+        width="16"
+        height="16"
         viewBox="0 0 24 24"
         fill="none"
         animate={{ rotate: dark ? -28 : 0 }}
@@ -59,7 +55,6 @@ export function ThemeToggle() {
       >
         <mask id={`moon${mid}`}>
           <rect x="0" y="0" width="24" height="24" fill="white" />
-          {/* the bite that carves the crescent: slides in from off-canvas */}
           <motion.circle
             fill="black"
             initial={false}
@@ -68,8 +63,7 @@ export function ThemeToggle() {
           />
         </mask>
         <motion.circle
-          cx="12"
-          cy="12"
+          cx="12" cy="12"
           fill="currentColor"
           mask={`url(#moon${mid})`}
           initial={false}

@@ -1,6 +1,6 @@
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { GasSponsor } from "./sponsor";
-import { buildDeepBookSwapPTB, buildLogChargePTB } from "./ptb";
+import { buildDeepBookSwapPTB, buildLogChargePTB, type SwapDirection } from "./ptb";
 import { RefusalError, EngineError } from "./errors";
 import { atomsToUsdc } from "./terms";
 import { findSponsorCoin, moveErrorToRefusal } from "./sui";
@@ -75,24 +75,29 @@ export async function executeOperation(
     throw new RefusalError("invalid_terms", "sponsor has insufficient USDC for this swap");
   }
 
+  // DEEP fee is optional — DeepBook V3 allows deepAmount=0 (no DEEP fee).
+  // If the sponsor has DEEP tokens, use them for the fee discount.
   const deepCoinId = await findSponsorCoin(client, sponsorAddress, DEEP_COIN_TYPE, 10_000_000n);
-  if (!deepCoinId) {
-    throw new RefusalError("invalid_terms", "sponsor has no DEEP tokens for swap fee");
-  }
 
   const user = store.getUser(card.user_id);
   const recipient = user?.address ?? sponsorAddress;
 
   const poolId = req.poolId ?? DEEPBOOK_DEFAULT_POOL;
-  const minBaseOut = req.minOutAtoms ?? 0n;
+  const minOut = req.minOutAtoms ?? 0n;
+  const direction = req.action as SwapDirection;
+
+  // For swap_exact_quote_for_base: sell USDC (quote), buy base (e.g. SUI)
+  // For swap_exact_base_for_quote: sell base, buy USDC — coinIn would be the base coin
+  const coinIn = usdcCoinId; // in v1 we only support selling USDC from the card budget
 
   const tx = buildDeepBookSwapPTB({
     poolId,
-    quoteCoinId: usdcCoinId,
-    deepCoinId,
-    minBaseOut,
-    quoteCoinType: req.sellCoinType,
-    baseCoinType: req.buyCoinType,
+    direction,
+    coinIn,
+    coinInType: req.sellCoinType,
+    coinOutType: req.buyCoinType,
+    deepCoinId: deepCoinId ?? null,
+    minOut,
     recipient,
   });
 

@@ -1,11 +1,11 @@
 "use client";
 
-// SuiPass: zkLogin providers (Sui wallet + Google OAuth)
-// Replaces PrivyProvider with Sui dApp kit + custom zkLogin auth context.
-
 import { createNetworkConfig, SuiClientProvider, WalletProvider } from "@mysten/dapp-kit";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { MotionConfig } from "motion/react";
 import { AuthProvider } from "./useAuth";
+
+const queryClient = new QueryClient();
 
 const { networkConfig } = createNetworkConfig({
   testnet: { url: "https://fullnode.testnet.sui.io:443", network: "testnet" },
@@ -15,13 +15,15 @@ const { networkConfig } = createNetworkConfig({
 export function Providers({ children }: { children: React.ReactNode }) {
   if (typeof window !== "undefined" && !window.isSecureContext) return <InsecureOrigin />;
   return (
-    <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
-      <WalletProvider autoConnect={false}>
-        <AuthProvider>
-          <MotionConfig reducedMotion="user">{children}</MotionConfig>
-        </AuthProvider>
-      </WalletProvider>
-    </SuiClientProvider>
+    <QueryClientProvider client={queryClient}>
+      <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
+        <WalletProvider autoConnect={false}>
+          <AuthProvider>
+            <MotionConfig reducedMotion="user">{children}</MotionConfig>
+          </AuthProvider>
+        </WalletProvider>
+      </SuiClientProvider>
+    </QueryClientProvider>
   );
 }
 

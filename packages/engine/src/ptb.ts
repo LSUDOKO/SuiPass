@@ -1,9 +1,9 @@
 // SuiPass: Programmable Transaction Block builders
 // These replace the ERC-7710 delegation + 1Shot relayer pattern
 
-import { Transaction } from "@mysten/sui/transactions";
+import { Transaction, coinWithBalance } from "@mysten/sui/transactions";
 import type { CardTerms } from "./terms";
-import { SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, CARD_MODULE, DEEPBOOK_PACKAGE_ID, DEEPBOOK_POOL_MODULE } from "./sui";
+import { SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, CARD_MODULE, DEEPBOOK_PACKAGE_ID, DEEPBOOK_POOL_MODULE, DEEP_COIN_TYPE } from "./sui";
 
 // ─── Card Issuance ───
 
@@ -34,7 +34,7 @@ export function buildIssueRootCardPTB(args: {
       tx.pure.u64(args.perTxMax),
       tx.pure.u64(args.maxUses),
       tx.pure.u64(args.expiry),
-      tx.makeMoveVec({ elements: merchantVec }),
+      tx.makeMoveVec({ elements: merchantVec, type: "address" }),
       clockArg,
     ],
   });
@@ -74,7 +74,7 @@ export function buildIssueSubcardPTB(args: {
       tx.pure.u64(args.perTxMax),
       tx.pure.u64(args.maxUses),
       tx.pure.u64(args.expiry),
-      tx.makeMoveVec({ elements: merchantVec }),
+      tx.makeMoveVec({ elements: merchantVec, type: "address" }),
       clockArg,
     ],
   });
@@ -145,32 +145,55 @@ export function buildLogChargePTB(args: {
 }
 
 // ─── DeepBook Swap ───
+//
+// DeepBook V3 is a CLOB (Central Limit Order Book). The pool module exposes
+// two swap-entry functions:
+//   swap_exact_quote_for_base — sell the quote coin, buy the base coin
+//   swap_exact_base_for_quote — sell the base coin, buy the quote coin
+//
+// Both accept an optional Coin<DEEP> for the protocol fee. When the sponsor
+// has no DEEP tokens, a zero-balance DEEP coin is created on-chain via
+// coinWithBalance (the pool accepts 0-DEEP fees).
+//
+// Each function returns up to three coin results:
+//   [coinOut, leftoverIn, leftoverDEEP]
+
+export type SwapDirection = "swap_exact_quote_for_base" | "swap_exact_base_for_quote";
 
 export function buildDeepBookSwapPTB(args: {
   poolId: string;
-  quoteCoinId: string;      // USDC coin object ID (from sponsor)
-  deepCoinId: string;        // DEEP coin object ID (from sponsor, for fees)
-  minBaseOut: bigint;        // minimum SUI to receive (slippage protection)
-  quoteCoinType: string;     // e.g. USDC coin type
-  baseCoinType: string;      // e.g. 0x2::sui::SUI
-  recipient: string;         // card owner address — receives swapped coins
+  direction: SwapDirection;
+  coinIn: string;               // the coin object ID to sell (Coin<SellType>)
+  coinInType: string;           // the type of the coin being sold
+  coinOutType: string;          // the type of the coin being bought
+  deepCoinId: string | null;    // DEEP coin object ID (null = no DEEP fee)
+  minOut: bigint;               // minimum receive amount (slippage)
+  recipient: string;            // address that receives the output coins
 }): Transaction {
   const tx = new Transaction();
 
-  const [baseOut, quoteLeftover, deepLeftover] = tx.moveCall({
-    target: `${DEEPBOOK_PACKAGE_ID}::${DEEPBOOK_POOL_MODULE}::swap_exact_quote_for_base`,
-    typeArguments: [args.baseCoinType, args.quoteCoinType],
+  const target = `${DEEPBOOK_PACKAGE_ID}::${DEEPBOOK_POOL_MODULE}::${args.direction}`;
+  const typeArgs = args.direction === "swap_exact_quote_for_base"
+    ? [args.coinOutType, args.coinInType]   // base, quote
+    : [args.coinInType, args.coinOutType];  // base, quote
+
+  const deepCoin = args.deepCoinId
+    ? tx.object(args.deepCoinId)
+    : coinWithBalance({ type: DEEP_COIN_TYPE, balance: 0n });
+
+  const [coinOut, leftoverCoin, leftoverDEEP] = tx.moveCall({
+    target: target as `${string}::${string}::${string}`,
+    typeArguments: typeArgs,
     arguments: [
       tx.object(args.poolId),
-      tx.object(args.quoteCoinId),
-      tx.object(args.deepCoinId),
-      tx.pure.u64(args.minBaseOut),
+      tx.object(args.coinIn),
+      deepCoin,
+      tx.pure.u64(args.minOut),
       tx.object(CLOCK_OBJECT_ID),
     ],
   });
 
-  // Send output coins to the recipient
-  tx.transferObjects([baseOut!, quoteLeftover!, deepLeftover!], tx.pure.address(args.recipient));
+  tx.transferObjects([coinOut!, leftoverCoin!, leftoverDEEP!], tx.pure.address(args.recipient));
 
   return tx;
 }

@@ -112,7 +112,7 @@ export function CardHero({
                 )}
               </div>
               <span className="bfacts data">
-                Base · mainnet{agentAddress ? ` · ${shortHex(agentAddress)}` : ""}
+                Sui · testnet{agentAddress ? ` · ${shortHex(agentAddress)}` : ""}
                 {brand ? ` · ${brand} test mode` : ""}
               </span>
               <p className="backhint">
@@ -123,7 +123,7 @@ export function CardHero({
                     : "No secrets on this card · connecting an agent reveals the credential."}
               </p>
               <div className="bfoot">
-                <span className="bwm">remit</span>
+                <span className="bwm">SuiPass</span>
                 <span className="bnote">Authority, lent not given.</span>
               </div>
             </div>

@@ -228,10 +228,10 @@ export default function ShopPage() {
         <p className={s.foot}>
           A demo storefront. It accepts Visa cards issued by{" "}
           <a href="https://remit.s0nderlabs.xyz" target="_blank" rel="noreferrer">
-            remit
+            SuiPass
           </a>{" "}
           in Stripe test mode; every charge authorizes in real time against the card&apos;s on-chain budget, and
-          approved charges settle as real USDC transfers on Base.
+          approved charges settle as real USDC transfers on Sui.
         </p>
       </div>
     </div>

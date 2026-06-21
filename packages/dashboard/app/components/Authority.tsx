@@ -46,7 +46,7 @@ export function allowance(card: CardState) {
   const capStr = card.terms.pay?.period?.amount ?? card.terms.pay?.lifetime?.amount ?? null;
   const remainingStr = card.remaining_this_period ?? card.remaining_lifetime;
   const cap = capStr ? parseFloat(capStr) : null;
-  const remaining = remainingStr !== null && remainingStr !== undefined ? parseFloat(remainingStr) : null;
+  const remaining = remainingStr !== null && remainingStr !== undefined ? parseFloat(remainingStr) : cap;
   const spent = cap !== null && remaining !== null ? Math.max(0, cap - remaining) : null;
   const spentPct = cap && spent !== null ? Math.min(100, (spent / cap) * 100) : 0;
   return { cap, remaining, spent, spentPct };
@@ -348,7 +348,7 @@ export function UrlBox({ url, testid }: { url: string; testid?: string }) {
 export function ConnectChips({ url, cardName }: { url: string; cardName: string }) {
   const [done, setDone] = useState<string | null>(null);
   const slug = cardName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "card";
-  const name = `remit-${slug}`;
+  const name = `suipass-${slug}`;
   const cli = `claude mcp add --transport http ${name} ${url}`;
   const codex = `codex mcp add ${name} --url ${url}`;
   // openclaw defaults HTTP servers to SSE when the transport flag is omitted · keep it explicit

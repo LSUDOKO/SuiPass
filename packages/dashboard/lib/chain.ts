@@ -22,4 +22,4 @@ export const API_BASE = process.env.NEXT_PUBLIC_SUIPASS_API ?? "http://localhost
 
 /** The zkLogin redirect URI (after Google OAuth, the user comes back here) */
 export const ZKLOGIN_REDIRECT_URI =
-  process.env.NEXT_PUBLIC_ZKLOGIN_REDIRECT_URI ?? "http://localhost:4071/api/auth/google/callback";
+  process.env.NEXT_PUBLIC_ZKLOGIN_REDIRECT_URI ?? "http://localhost:4071";

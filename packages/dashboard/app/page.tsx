@@ -212,7 +212,17 @@ function Dashboard({
       onLogout={onLogout}
       address={address}
       nukeable={cards.some((c) => c.status === "active" || c.status === "frozen")}
-      aggregate={loaded ? `${cards.filter((c) => c.status === "active").length} cards` : undefined}
+      aggregate={
+        loaded
+          ? (() => {
+              const active = cards.filter((c) => c.status === "active");
+              const totalBudget = active.reduce((sum, c) => sum + (parseFloat(c.terms.pay?.period?.amount ?? c.terms.pay?.lifetime?.amount ?? "0") || 0), 0);
+              return totalBudget > 0
+                ? `${active.length} card${active.length === 1 ? "" : "s"} · $${totalBudget.toFixed(2)} / wk delegated`
+                : `${active.length} card${active.length === 1 ? "" : "s"}`;
+            })()
+          : undefined
+      }
     >
       {error && (
         <p className="err" style={{ margin: "0 8px 10px" }}>API error: {error}</p>

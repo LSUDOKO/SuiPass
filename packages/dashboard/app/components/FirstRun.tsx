@@ -90,7 +90,7 @@ export function FirstRun({
         className="modal fr"
         role="dialog"
         aria-modal="true"
-        aria-label="Welcome to remit"
+        aria-label="Welcome to SuiPass"
         initial={{ opacity: 0, y: 26, scale: 0.97 }}
         animate={{ opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 360, damping: 30 } }}
         exit={{ opacity: 0, y: 14, scale: 0.98, transition: { duration: 0.16 } }}
@@ -106,7 +106,7 @@ export function FirstRun({
             >
               <div className="mhead">
                 <div>
-                  <div className="mtitle">Welcome to remit</div>
+                  <div className="mtitle">Welcome to SuiPass</div>
                   <div className="msub">Authority, lent not given.</div>
                 </div>
               </div>
@@ -151,20 +151,20 @@ export function FirstRun({
               <div className="mhead">
                 <div>
                   <div className="mtitle">Fund Your Wallet</div>
-                  <div className="msub">Cards spend USDC from your embedded wallet on Base</div>
+                  <div className="msub">Cards spend USDC from your wallet on Sui Testnet</div>
                 </div>
               </div>
               <div className={`frbal${funded ? " funded" : ""}`} data-testid="firstrun-balance">
                 {funded && <IconCheck />}
                 <span className="frbalfig">{bal === null ? "–" : `$${bal.toFixed(2)}`}</span>
-                <span className="frballbl">{funded ? "USDC received · live on Base" : "USDC on Base"}</span>
+                <span className="frballbl">{funded ? "USDC received · live on Sui" : "USDC on Sui"}</span>
               </div>
               <button className="fraddr" onClick={copy} title="Copy your wallet address" data-testid="firstrun-address">
                 <span className="fraddrtext">{address}</span>
                 {copied ? <IconCheck /> : <IconCopy />}
               </button>
               <p className="frnote">
-                Send USDC on Base to this address · it lands in seconds and the figure above will tick up. Issuing a
+                Send USDC on Sui Testnet to this address · it lands in seconds and the figure above will tick up. Issuing a
                 card is free (a signature, no gas), so you can also fund later · your avatar menu keeps this address
                 and balance.
               </p>

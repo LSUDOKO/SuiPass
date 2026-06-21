@@ -163,6 +163,24 @@ const result = await compileIntent(body.prompt, { chat: deps.veniceChat, resolve
     return c.json({ revoked: true });
   });
 
+  app.delete("/cards/:id", async (c) => {
+    const userId = c.get("userId");
+    if (!userId) return c.json({ error: "unauthorized" }, 401);
+    const cardId = c.req.param("id")!;
+    const card = deps.store.getCard(cardId);
+    if (!card) return c.json({ error: "not found" }, 404);
+    const n = deps.store.deleteCardTree(cardId);
+    return c.json({ deleted: n > 0 });
+  });
+
+  app.post("/nuke", async (c) => {
+    const userId = c.get("userId");
+    if (!userId) return c.json({ error: "unauthorized" }, 401);
+    const { nukeAll } = await import("@suipass/engine");
+    await nukeAll({ store: deps.store, suiClient: deps.suiClient, gasSponsor: deps.gasSponsor, packageId: deps.packageId }, userId);
+    return c.json({ nuked: true });
+  });
+
   // ─── Charges / Activity ───
 
   app.get("/cards/:id/charges", async (c) => {
