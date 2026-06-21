@@ -44,4 +44,3 @@ sui-bridge-cli
 
 # EVM-era leftovers
 harness-privy/
-bun.lock
