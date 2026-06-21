@@ -16,8 +16,8 @@ COPY tsconfig.json tsconfig.json
 COPY packages/engine/tsconfig.json packages/engine/tsconfig.json
 COPY packages/server/tsconfig.json packages/server/tsconfig.json
 
-# Ensure SQLite directory exists (SUIPASS_DB_PATH=.dev/suipass.sqlite)
-RUN mkdir -p .dev
+# Ensure SQLite directory exists (SUIPASS_DB_PATH=.dev/suipass.sqlite, CWD is /app/packages/server)
+RUN mkdir -p packages/server/.dev
 
 # Copy source code
 COPY packages/engine/src packages/engine/src
