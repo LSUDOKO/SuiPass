@@ -12,11 +12,13 @@ import {
   parseUsdcAmount,
   cardState as getCardState,
   spend,
+  executeOperation,
   issueSubCard,
   buildRevokeCardPTB,
   buildFreezeCardPTB,
   buildSpendPTB,
   type SpendDeps,
+  type ExecuteDeps,
   type CardRow,
   type CardTerms,
 } from "@suipass/engine";
@@ -210,25 +212,56 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
       }),
   );
 
-  // ─── execute (scoped Move calls) ───
+  // ─── execute (protocol calls — DeepBook swaps) ───
 
   server.registerTool(
     "execute",
     {
-      title: "Execute a Sui Move call",
-      description: "Call a Move function within this card's scope. Currently supports transfer and swap operations on Sui.",
+      title: "Execute a protocol operation",
+      description: "Run a DeFi operation within this card's scope. Currently supports DeepBook swaps (e.g. swap USDC for SUI). The card budget is deducted by the swap amount.",
       inputSchema: {
-        target: z.string().regex(/^0x[0-9a-fA-F]{40,64}::\w+::\w+$/).describe("Move function target, e.g. 0x2::coin::transfer"),
-        arguments: z.array(z.union([z.string(), z.number()])).optional().describe("function arguments"),
+        protocol: z.enum(["deepbook"]).describe("the protocol to use"),
+        action: z.string().describe("the operation: swap_exact_quote_for_base (sell USDC, buy SUI) or swap_exact_base_for_quote (sell SUI, buy USDC)"),
+        sell_coin: z.string().describe("coin type to sell, e.g. 0x5d4b3025...::coin::COIN for USDC"),
+        buy_coin: z.string().describe("coin type to buy, e.g. 0x2::sui::SUI"),
+        amount: z.string().regex(/^\d+(\.\d{1,6})?$/).describe("amount to sell, decimal string, e.g. \"10.00\""),
+        min_out: z.string().regex(/^\d+$/).optional().describe("minimum buy amount in atomic units (raw, no decimals), e.g. 1000000"),
+        pool_id: z.string().optional().describe("DeepBook pool object ID (optional, uses default USDC/SUI pool)"),
         memo: z.string().max(280).optional(),
         idempotency_key: z.string().max(128).optional(),
       },
       annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
-    async (args: { target: string; arguments?: Array<string | number>; memo?: string; idempotency_key?: string }) =>
-      run(async () => {
-        throw new RefusalError("target_not_allowed", "execute tool coming soon — use pay for now");
-      }),
+    async (args: {
+      protocol: "deepbook";
+      action: string;
+      sell_coin: string;
+      buy_coin: string;
+      amount: string;
+      min_out?: string;
+      pool_id?: string;
+      memo?: string;
+      idempotency_key?: string;
+    }) =>
+      run(() =>
+        locked(() =>
+          executeOperation(
+            { store: sd.store, suiClient: sd.suiClient, gasSponsor: deps.gasSponsor, packageId: deps.packageId },
+            card.id,
+            {
+              protocol: args.protocol,
+              action: args.action,
+              sellCoinType: args.sell_coin,
+              buyCoinType: args.buy_coin,
+              amountAtoms: parseUsdcAmount(args.amount),
+              minOutAtoms: args.min_out ? BigInt(args.min_out) : undefined,
+              poolId: args.pool_id,
+              memo: args.memo,
+              idempotencyKey: args.idempotency_key,
+            },
+          ),
+        ),
+      ),
   );
 
   // ─── sub-card management ───

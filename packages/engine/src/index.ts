@@ -48,5 +48,9 @@ export { RefusalError, EngineError } from "./errors";
 // Mutex
 export { KeyedMutex } from "./mutex";
 
+// Execute (DeepBook / protocol operations)
+export { executeOperation } from "./execute";
+export type { ExecuteDeps, ExecuteRequest, ExecuteProtocol } from "./execute";
+
 // Types
 export type { CardState, Receipt } from "./types";

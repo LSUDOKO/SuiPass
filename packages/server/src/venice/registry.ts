@@ -63,19 +63,17 @@ export const PROTOCOLS: ProtocolEntry[] = [
   {
     key: "deepbook",
     label: "DeepBook V3",
-    packageId: "0x2c7bccf7d9b9b8b8b8b8b8b8b8b8b8b8b8b8b8b8",
+    packageId: "0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c",
     selectors: [
-      "place_order",
-      "cancel_order",
-      "swap_exact_input",
-      "swap_exact_output",
+      "swap_exact_base_for_quote",
+      "swap_exact_quote_for_base",
     ],
     aliases: ["deepbook", "deep book", "deep", "deepbook v3", "db"],
   },
   {
     key: "cetus",
     label: "Cetus DEX",
-    packageId: "0x2c7bccf7d9b9b8b8b8b8b8b8b8b8b8b8b8b8b8b8",
+    packageId: "0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c",
     selectors: [
       "swap",
       "add_liquidity",

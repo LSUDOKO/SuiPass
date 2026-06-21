@@ -19,6 +19,19 @@ export const USDC_COIN_TYPE =
 // Clock object ID (constant across all Sui networks)
 export const CLOCK_OBJECT_ID = "0x6";
 
+// DeepBook V3 testnet (from @mysten/deepbook-v3 SDK)
+export const DEEPBOOK_PACKAGE_ID = "0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c";
+export const DEEPBOOK_POOL_MODULE = "pool";
+export const DEEP_COIN_TYPE = "0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP";
+
+// Pre-configured pool for USDC -> SUI on testnet.
+// In production, look up the pool dynamically from the DeepBook registry.
+// Default: SUI_DBUSDC pool on testnet
+export const DEEPBOOK_POOL_IDS: Record<string, string> = {
+  "SUI_DBUSDC": "0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5",
+};
+export const DEEPBOOK_DEFAULT_POOL = DEEPBOOK_POOL_IDS["SUI_DBUSDC"]!;
+
 // Module names
 export const CARD_MODULE = "card";
 

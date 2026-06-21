@@ -3,7 +3,7 @@
 
 import { Transaction } from "@mysten/sui/transactions";
 import type { CardTerms } from "./terms";
-import { SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, CARD_MODULE } from "./sui";
+import { SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, CARD_MODULE, DEEPBOOK_PACKAGE_ID, DEEPBOOK_POOL_MODULE } from "./sui";
 
 // ─── Card Issuance ───
 
@@ -138,6 +138,37 @@ export function buildLogChargePTB(args: {
       tx.object(CLOCK_OBJECT_ID),
     ],
   });
+
+  return tx;
+}
+
+// ─── DeepBook Swap ───
+
+export function buildDeepBookSwapPTB(args: {
+  poolId: string;
+  quoteCoinId: string;      // USDC coin object ID (from sponsor)
+  deepCoinId: string;        // DEEP coin object ID (from sponsor, for fees)
+  minBaseOut: bigint;        // minimum SUI to receive (slippage protection)
+  quoteCoinType: string;     // e.g. USDC coin type
+  baseCoinType: string;      // e.g. 0x2::sui::SUI
+  recipient: string;         // card owner address — receives swapped coins
+}): Transaction {
+  const tx = new Transaction();
+
+  const [baseOut, quoteLeftover, deepLeftover] = tx.moveCall({
+    target: `${DEEPBOOK_PACKAGE_ID}::${DEEPBOOK_POOL_MODULE}::swap_exact_quote_for_base`,
+    typeArguments: [args.baseCoinType, args.quoteCoinType],
+    arguments: [
+      tx.object(args.poolId),
+      tx.object(args.quoteCoinId),
+      tx.object(args.deepCoinId),
+      tx.pure.u64(args.minBaseOut),
+      tx.object(CLOCK_OBJECT_ID),
+    ],
+  });
+
+  // Send output coins to the recipient
+  tx.transferObjects([baseOut, quoteLeftover, deepLeftover], tx.pure.address(args.recipient));
 
   return tx;
 }
