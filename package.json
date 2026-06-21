@@ -1,0 +1,20 @@
+{
+  "name": "suipass",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run --cwd packages/server dev",
+    "build:move": "cd packages/engine/sui && sui move build",
+    "test:move": "cd packages/engine/sui && sui move test",
+    "publish:move": "cd packages/engine/sui && sui client publish --gas-budget 50000000",
+    "typecheck": "bun run --cwd packages/engine typecheck && bun run --cwd packages/server typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "^5"
+  }
+}

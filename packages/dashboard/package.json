@@ -1,0 +1,26 @@
+{
+  "name": "@suipass/dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev -p 4071",
+    "build": "next build",
+    "start": "next start -p 4071",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@mysten/sui": "../../ts-sdks/packages/sui",
+    "@mysten/dapp-kit": "../../ts-sdks/packages/dapp-kit",
+    "@mysten/wallet-standard": "../../ts-sdks/packages/wallet-standard",
+    "motion": "^12.40.0",
+    "next": "^16.2.7",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "typescript": "^5"
+  }
+}

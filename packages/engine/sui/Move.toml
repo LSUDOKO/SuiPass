@@ -1,0 +1,6 @@
+[package]
+name = "SuiPass"
+edition = "2024"
+
+[addresses]
+suipass = "_"

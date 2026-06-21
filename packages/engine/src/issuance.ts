@@ -1,0 +1,216 @@
+// SuiPass: Card issuance — builds PTBs, records metadata.
+// Users sign via zkLogin; server sponsors gas and records the card in the store.
+
+import { SuiClient } from "@mysten/sui/client";
+import { GasSponsor } from "./sponsor";
+import { buildIssueRootCardPTB, buildIssueSubcardPTB } from "./ptb";
+import { RefusalError, EngineError } from "./errors";
+import { parseUsdcAmount, validateTerms, type CardTerms } from "./terms";
+import type { Store } from "./store";
+
+export type IssuedCard = {
+  cardId: string;
+  secret: string;
+  terms: CardTerms;
+  cardObjId: string;
+  capId: string;
+};
+
+export type IssuanceDeps = {
+  store: Store;
+  suiClient: SuiClient;
+  gasSponsor: GasSponsor;
+  packageId: string;
+  now?: () => number;
+};
+
+// ─── Root Card ───
+
+export async function issueRootCard(
+  deps: IssuanceDeps,
+  args: { userId: string; name: string; terms: CardTerms },
+): Promise<IssuedCard> {
+  const now = deps.now ? deps.now() : Math.floor(Date.now() / 1000);
+  validateTerms(args.terms, now);
+
+  const pay = args.terms.pay!;
+  const budgetPeriodAmount = pay.period ? parseUsdcAmount(pay.period.amount) : 0n;
+  const budgetPeriodSeconds = BigInt(pay.period?.seconds ?? 0);
+  const budgetLifetimeAmount = pay.lifetime ? parseUsdcAmount(pay.lifetime.amount) : 0n;
+  const perTxMax = args.terms.perTxMax ? parseUsdcAmount(args.terms.perTxMax) : 0n;
+  const maxUses = BigInt(args.terms.maxUses ?? 0);
+  const expiry = BigInt(args.terms.expiry ?? 0);
+  const merchants = args.terms.merchants ?? [];
+
+  const tx = buildIssueRootCardPTB({
+    name: args.name,
+    budgetPeriodAmount,
+    budgetPeriodSeconds,
+    budgetLifetimeAmount,
+    perTxMax,
+    maxUses,
+    expiry,
+    merchantAllowlist: merchants,
+  });
+
+  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+
+  // Execute — the user signs via zkLogin in the browser flow.
+  // For server-side issuance (admin/mcp), the sponsor signs directly.
+  const user = deps.store.getUser(args.userId);
+  if (!user) throw new RefusalError("card_not_found", "user not found");
+
+  const result = await deps.gasSponsor.executeTransaction(sponsored);
+  if (result.error) {
+    throw new EngineError("issuance", `failed to issue card: ${result.error}`);
+  }
+
+  // Extract created object IDs from effects
+  const created = (result.effects?.created as Array<{ reference: { objectId: string } }>) ?? [];
+  const cardObj = created[0];
+  const capObj = created[1];
+
+  if (!cardObj || !capObj) {
+    throw new EngineError("issuance", "card or cap object not created");
+  }
+
+  const cardId = crypto.randomUUID();
+  const secret = generateCardSecret();
+
+  deps.store.createCard({
+    id: cardId,
+    user_id: args.userId,
+    parent_card_id: null,
+    name: args.name,
+    secret_hash: hashCardSecret(secret),
+    secret_enc: await encryptSecret(secret),
+    terms: args.terms,
+    cap_id: capObj.reference.objectId,
+    card_obj_id: cardObj.reference.objectId,
+    status: "active",
+    usage_count: 0,
+    created_at: now,
+  });
+
+  return {
+    cardId,
+    secret,
+    terms: args.terms,
+    cardObjId: cardObj.reference.objectId,
+    capId: capObj.reference.objectId,
+  };
+}
+
+// ─── Sub-card ───
+
+export async function issueSubCard(
+  deps: Pick<IssuanceDeps, "store" | "gasSponsor" | "packageId">,
+  args: { parentCardId: string; name: string; terms: CardTerms },
+): Promise<IssuedCard> {
+  const now = Math.floor(Date.now() / 1000);
+  const store = deps.store;
+
+  const parent = store.getCard(args.parentCardId);
+  if (!parent) throw new RefusalError("card_not_found", "parent card not found");
+  if (parent.status !== "active") {
+    throw new RefusalError(parent.status === "frozen" ? "card_frozen" : "card_revoked", `parent card is ${parent.status}`);
+  }
+
+  validateTerms(args.terms, now);
+
+  // Attenuation: child must be subset of parent (simplified — full check in Move)
+  const pay = args.terms.pay!;
+  const budgetPeriodAmount = pay.period ? parseUsdcAmount(pay.period.amount) : 0n;
+  const budgetPeriodSeconds = BigInt(pay.period?.seconds ?? 0);
+  const budgetLifetimeAmount = pay.lifetime ? parseUsdcAmount(pay.lifetime.amount) : 0n;
+  const perTxMax = args.terms.perTxMax ? parseUsdcAmount(args.terms.perTxMax) : 0n;
+  const maxUses = BigInt(args.terms.maxUses ?? 0);
+  const expiry = BigInt(args.terms.expiry ?? 0);
+  const merchants = args.terms.merchants ?? [];
+
+  const tx = buildIssueSubcardPTB({
+    parentCardId: parent.card_obj_id,
+    parentCapId: parent.cap_id,
+    name: args.name,
+    budgetPeriodAmount,
+    budgetPeriodSeconds,
+    budgetLifetimeAmount,
+    perTxMax,
+    maxUses,
+    expiry,
+    merchantAllowlist: merchants,
+  });
+
+  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+  const result = await deps.gasSponsor.executeTransaction(sponsored);
+  if (result.error) {
+    throw new EngineError("issuance", `failed to issue sub-card: ${result.error}`);
+  }
+
+  const created = (result.effects?.created as Array<{ reference: { objectId: string } }>) ?? [];
+  const cardObj = created[0];
+  const capObj = created[1];
+  if (!cardObj || !capObj) {
+    throw new EngineError("issuance", "sub-card or cap object not created");
+  }
+
+  const cardId = crypto.randomUUID();
+  const secret = generateCardSecret();
+
+  store.createCard({
+    id: cardId,
+    user_id: parent.user_id,
+    parent_card_id: parent.id,
+    name: args.name,
+    secret_hash: hashCardSecret(secret),
+    secret_enc: await encryptSecret(secret),
+    terms: args.terms,
+    cap_id: capObj.reference.objectId,
+    card_obj_id: cardObj.reference.objectId,
+    status: "active",
+    usage_count: 0,
+    created_at: now,
+  });
+
+  return {
+    cardId,
+    secret,
+    terms: args.terms,
+    cardObjId: cardObj.reference.objectId,
+    capId: capObj.reference.objectId,
+  };
+}
+
+// ─── Secret management (reused from EVM version) ───
+
+function generateCardSecret(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  return Buffer.from(bytes).toString("base64url");
+}
+
+function hashCardSecret(secret: string): string {
+  return new Bun.CryptoHasher("sha256").update(secret).digest("hex");
+}
+
+async function encryptSecret(plaintext: string): Promise<Uint8Array> {
+  const masterKeyHex = process.env.SUIPASS_MASTER_KEY;
+  if (!masterKeyHex || !/^(0x)?[0-9a-fA-F]{64}$/.test(masterKeyHex)) {
+    throw new EngineError("custody", "SUIPASS_MASTER_KEY must be set to 32-byte hex");
+  }
+  const keyBytes = hexToBytes(masterKeyHex.replace(/^0x/, ""));
+  const key = await crypto.subtle.importKey("raw", keyBytes, "AES-GCM", false, ["encrypt"]);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = new Uint8Array(
+    await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, new TextEncoder().encode(plaintext)),
+  );
+  const blob = new Uint8Array(12 + ct.length);
+  blob.set(iv, 0);
+  blob.set(ct, 12);
+  return blob;
+}
+
+function hexToBytes(hex: string): Uint8Array<ArrayBuffer> {
+  const out = new Uint8Array(new ArrayBuffer(hex.length / 2));
+  for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  return out;
+}
