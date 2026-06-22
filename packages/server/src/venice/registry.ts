@@ -73,13 +73,12 @@ export const PROTOCOLS: ProtocolEntry[] = [
   {
     key: "cetus",
     label: "Cetus DEX",
-    packageId: "0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c",
+    packageId: "0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8",
     selectors: [
       "swap",
-      "add_liquidity",
-      "remove_liquidity",
+      "swap_exact_input",
     ],
-    aliases: ["cetus", "cetus dex", "cetus protocol"],
+    aliases: ["cetus", "cetus dex", "cetus protocol", "cetus clmm"],
   },
   {
     key: "walrus",

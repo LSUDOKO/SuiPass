@@ -33,6 +33,11 @@ export const DEEPBOOK_POOL_IDS: Record<string, string> = {
 };
 export const DEEPBOOK_DEFAULT_POOL = DEEPBOOK_POOL_IDS["SUI_DBUSDC"]!;
 
+// Cetus DEX testnet config (from @cetusprotocol/aggregator-sdk published addresses)
+export const CETUS_PACKAGE_ID = "0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8";
+// Cetus aggregator API endpoint for route finding
+export const CETUS_AGGREGATOR_URL = "https://api-sui.cetus.zone/router_v3/find_routes";
+
 // Module names
 export const CARD_MODULE = "card";
 

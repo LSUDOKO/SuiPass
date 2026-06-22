@@ -218,11 +218,11 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
     "execute",
     {
       title: "Execute a protocol operation",
-      description: "Run a DeFi operation within this card's scope. Currently supports DeepBook swaps (e.g. swap USDC for SUI). The card budget is deducted by the swap amount.",
+      description: "Run a DeFi operation within this card's scope. Supports DeepBook V3 (deepbook) and Cetus DEX (cetus) swaps. The card budget is deducted by the swap amount.",
       inputSchema: {
-        protocol: z.enum(["deepbook"]).describe("the protocol to use"),
-        action: z.string().describe("the operation: swap_exact_quote_for_base (sell USDC, buy SUI) or swap_exact_base_for_quote (sell SUI, buy USDC)"),
-        sell_coin: z.string().describe("coin type to sell, e.g. 0x5d4b3025...::coin::COIN for USDC"),
+        protocol: z.enum(["deepbook", "cetus"]).describe("the protocol to use: deepbook or cetus"),
+        action: z.string().describe("the operation: swap_exact_quote_for_base (sell USDC, buy SUI), swap_exact_base_for_quote (sell SUI, buy USDC), or swap (generic)"),
+        sell_coin: z.string().describe("coin type to sell, e.g. 0xa1ec7fc0...::usdc::USDC for Circle USDC"),
         buy_coin: z.string().describe("coin type to buy, e.g. 0x2::sui::SUI"),
         amount: z.string().regex(/^\d+(\.\d{1,6})?$/).describe("amount to sell, decimal string, e.g. \"10.00\""),
         min_out: z.string().regex(/^\d+$/).optional().describe("minimum buy amount in atomic units (raw, no decimals), e.g. 1000000"),
@@ -233,7 +233,7 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
       annotations: { destructiveHint: true, idempotentHint: true, openWorldHint: false },
     },
     async (args: {
-      protocol: "deepbook";
+      protocol: "deepbook" | "cetus";
       action: string;
       sell_coin: string;
       buy_coin: string;

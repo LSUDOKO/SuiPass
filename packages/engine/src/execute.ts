@@ -1,4 +1,6 @@
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
+import { Transaction } from "@mysten/sui/transactions";
+import { AggregatorClient, Env } from "@cetusprotocol/aggregator-sdk";
 import { GasSponsor } from "./sponsor";
 import { buildDeepBookSwapPTB, buildLogChargePTB, type SwapDirection } from "./ptb";
 import { RefusalError, EngineError } from "./errors";
@@ -14,7 +16,7 @@ import type { Store } from "./store";
 import { assertChainSpendable, cardState, validateSpend } from "./spend";
 import type { SpendRequest, SpendDeps, Receipt } from "./spend";
 
-export type ExecuteProtocol = "deepbook";
+export type ExecuteProtocol = "deepbook" | "cetus";
 
 export type ExecuteRequest = {
   protocol: ExecuteProtocol;
@@ -35,6 +37,175 @@ export type ExecuteDeps = {
   packageId: string;
   now?: () => number;
 };
+
+// ─── DeepBook swap ───
+
+async function handleDeepBookSwap(
+  deps: ExecuteDeps,
+  cardId: string,
+  card: { id: string; cap_id: string; user_id: string },
+  req: ExecuteRequest,
+  usdcCoinId: string,
+  recipient: string,
+  now: number,
+): Promise<Receipt> {
+  const store = deps.store;
+  const client = deps.suiClient ?? SUI_CLIENT;
+
+  const deepCoinId = await findSponsorCoin(client, deps.gasSponsor.sponsorAddress, DEEP_COIN_TYPE, 10_000_000n);
+
+  const poolId = req.poolId ?? DEEPBOOK_DEFAULT_POOL;
+  const minOut = req.minOutAtoms ?? 0n;
+  const direction = req.action as SwapDirection;
+
+  const tx = buildDeepBookSwapPTB({
+    poolId,
+    direction,
+    coinIn: usdcCoinId,
+    coinInType: req.sellCoinType,
+    coinOutType: req.buyCoinType,
+    deepCoinId: deepCoinId ?? null,
+    minOut,
+    recipient,
+  });
+
+  return executeAndLog(deps, cardId, card, req, tx, poolId, now);
+}
+
+// ─── Cetus swap (via AggregatorClient SDK) ───
+
+async function handleCetusSwap(
+  deps: ExecuteDeps,
+  cardId: string,
+  card: { id: string; cap_id: string; user_id: string },
+  req: ExecuteRequest,
+  usdcCoinId: string,
+  recipient: string,
+  now: number,
+): Promise<Receipt> {
+  // Use the Cetus AggregatorClient to find routes and build the swap PTB
+  // The SDK auto-creates a SuiGrpcClient when none is provided
+  const cetusClient = new AggregatorClient({
+    env: Env.Testnet,
+    signer: deps.gasSponsor.sponsorAddress,
+  });
+
+  const amountStr = req.amountAtoms.toString();
+  const routers = await cetusClient.findRouters({
+    from: req.sellCoinType,
+    target: req.buyCoinType,
+    amount: amountStr,
+    byAmountIn: true,
+  });
+
+  if (!routers || routers.insufficientLiquidity) {
+    throw new RefusalError("invalid_terms", "Cetus: insufficient liquidity");
+  }
+
+  const txb = new Transaction();
+  await cetusClient.fastRouterSwap({
+    router: routers,
+    slippage: 0.01,
+    txb,
+    sponsored: true,
+  });
+
+  const poolId = routers.paths?.[0]?.id ?? "cetus";
+  return executeAndLog(deps, cardId, card, req, txb, poolId, now);
+}
+
+// ─── Shared execution + logging ───
+
+async function executeAndLog(
+  deps: ExecuteDeps,
+  cardId: string,
+  card: { id: string; cap_id: string; user_id: string },
+  req: ExecuteRequest,
+  tx: Transaction,
+  target: string,
+  now: number,
+): Promise<Receipt> {
+  const store = deps.store;
+
+  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+
+  const chargeId = crypto.randomUUID();
+  store.insertCharge({
+    id: chargeId,
+    card_id: cardId,
+    idempotency_key: req.idempotencyKey ?? null,
+    kind: "execute",
+    to_addr: target,
+    amount_atoms: req.amountAtoms,
+    fee_atoms: 0n,
+    request_id: null,
+    tx_hash: null,
+    status: "pending",
+    memo: req.memo ?? null,
+    created_at: now,
+  });
+
+  const result = await deps.gasSponsor.executeTransaction(sponsored);
+
+  if (result.error) {
+    store.updateCharge(chargeId, { status: "failed" });
+    const abortMatch = result.error.match(/aborted with error code (\d+)/);
+    if (abortMatch) {
+      const code = parseInt(abortMatch[1]!);
+      throw new RefusalError(moveErrorToRefusal(code), `on-chain ${req.protocol} swap failed: ${result.error}`);
+    }
+    throw new EngineError("execute", `${req.protocol} swap execution failed: ${result.error}`);
+  }
+
+  store.updateCharge(chargeId, {
+    status: "confirmed",
+    tx_hash: result.digest,
+    request_id: result.digest,
+  });
+
+  // Fire-and-forget on-chain ChargeLog
+  const logTx = buildLogChargePTB({
+    cardId: card.id,
+    capId: card.cap_id,
+    amount: req.amountAtoms,
+    fee: 0n,
+    recipient: target,
+    memo: req.memo ?? "",
+    txDigest: result.digest,
+  });
+  const logSponsored = await deps.gasSponsor.sponsorTransaction(logTx);
+  deps.gasSponsor.executeTransaction(logSponsored).catch(
+    (e) => console.warn(`[execute] log_charge failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`),
+  );
+
+  store.insertEventLog({
+    id: crypto.randomUUID(),
+    card_id: cardId,
+    charge_id: chargeId,
+    type: "execute",
+    data: JSON.stringify({
+      protocol: req.protocol,
+      action: req.action,
+      amount: atomsToUsdc(req.amountAtoms),
+      tx_digest: result.digest,
+    }),
+    created_at: now,
+  });
+
+  const charge = store.getCharge(chargeId)!;
+  const state = cardState(store, cardId, now);
+  return {
+    status: charge.status === "confirmed" ? "confirmed" : "failed" as const,
+    tx: charge.tx_hash,
+    to: target,
+    amount: atomsToUsdc(charge.amount_atoms),
+    fee: atomsToUsdc(charge.fee_atoms),
+    remaining_this_period: state?.remaining_this_period ?? null,
+    memo: charge.memo ?? undefined,
+  };
+}
+
+// ─── Main execute dispatcher ───
 
 export async function executeOperation(
   deps: ExecuteDeps,
@@ -75,106 +246,12 @@ export async function executeOperation(
     throw new RefusalError("invalid_terms", "sponsor has insufficient USDC for this swap");
   }
 
-  // DEEP fee is optional — DeepBook V3 allows deepAmount=0 (no DEEP fee).
-  // If the sponsor has DEEP tokens, use them for the fee discount.
-  const deepCoinId = await findSponsorCoin(client, sponsorAddress, DEEP_COIN_TYPE, 10_000_000n);
-
   const user = store.getUser(card.user_id);
   const recipient = user?.address ?? sponsorAddress;
 
-  const poolId = req.poolId ?? DEEPBOOK_DEFAULT_POOL;
-  const minOut = req.minOutAtoms ?? 0n;
-  const direction = req.action as SwapDirection;
-
-  // For swap_exact_quote_for_base: sell USDC (quote), buy base (e.g. SUI)
-  // For swap_exact_base_for_quote: sell base, buy USDC — coinIn would be the base coin
-  const coinIn = usdcCoinId; // in v1 we only support selling USDC from the card budget
-
-  const tx = buildDeepBookSwapPTB({
-    poolId,
-    direction,
-    coinIn,
-    coinInType: req.sellCoinType,
-    coinOutType: req.buyCoinType,
-    deepCoinId: deepCoinId ?? null,
-    minOut,
-    recipient,
-  });
-
-  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
-
-  const chargeId = crypto.randomUUID();
-  store.insertCharge({
-    id: chargeId,
-    card_id: cardId,
-    idempotency_key: req.idempotencyKey ?? null,
-    kind: "execute",
-    to_addr: poolId,
-    amount_atoms: req.amountAtoms,
-    fee_atoms: 0n,
-    request_id: null,
-    tx_hash: null,
-    status: "pending",
-    memo: req.memo ?? null,
-    created_at: now,
-  });
-
-  const result = await deps.gasSponsor.executeTransaction(sponsored);
-
-  if (result.error) {
-    store.updateCharge(chargeId, { status: "failed" });
-    const abortMatch = result.error.match(/aborted with error code (\d+)/);
-    if (abortMatch) {
-      const code = parseInt(abortMatch[1]!);
-      throw new RefusalError(moveErrorToRefusal(code), `on-chain swap failed: ${result.error}`);
-    }
-    throw new EngineError("execute", `swap execution failed: ${result.error}`);
+  if (req.protocol === "cetus") {
+    return handleCetusSwap(deps, cardId, card, req, usdcCoinId, recipient, now);
   }
 
-  store.updateCharge(chargeId, {
-    status: "confirmed",
-    tx_hash: result.digest,
-    request_id: result.digest,
-  });
-
-  // Fire-and-forget on-chain ChargeLog
-  const logTx = buildLogChargePTB({
-    cardId: card.id,
-    capId: card.cap_id,
-    amount: req.amountAtoms,
-    fee: 0n,
-    recipient: poolId,
-    memo: req.memo ?? "",
-    txDigest: result.digest,
-  });
-  const logSponsored = await deps.gasSponsor.sponsorTransaction(logTx);
-  deps.gasSponsor.executeTransaction(logSponsored).catch(
-    (e) => console.warn(`[execute] log_charge failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`),
-  );
-
-  store.insertEventLog({
-    id: crypto.randomUUID(),
-    card_id: cardId,
-    charge_id: chargeId,
-    type: "execute",
-    data: JSON.stringify({
-      protocol: req.protocol,
-      action: req.action,
-      amount: atomsToUsdc(req.amountAtoms),
-      tx_digest: result.digest,
-    }),
-    created_at: now,
-  });
-
-  const charge = store.getCharge(chargeId)!;
-  const state = cardState(store, cardId, now);
-  return {
-    status: charge.status === "confirmed" ? "confirmed" : "failed" as const,
-    tx: charge.tx_hash,
-    to: poolId,
-    amount: atomsToUsdc(charge.amount_atoms),
-    fee: atomsToUsdc(charge.fee_atoms),
-    remaining_this_period: state?.remaining_this_period ?? null,
-    memo: charge.memo ?? undefined,
-  };
+  return handleDeepBookSwap(deps, cardId, card, req, usdcCoinId, recipient, now);
 }
