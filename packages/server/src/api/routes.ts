@@ -197,6 +197,155 @@ const result = await compileIntent(body.prompt, { chat: deps.veniceChat, resolve
     return c.json({ activity: logs });
   });
 
+  // ─── Demo paywall marketplace (for hackathon demos) ───
+  // Products available:
+  //   $0.50 — AI Training Dataset (1.2M rows, parquet, 340 MB)
+  //   $1.00 — Real-time Market Data Feed (Sui DEX volume, top 50 pairs)
+  //   $2.00 — Premium API Access (30-day key, 10K req/day, webhook support)
+  //
+  // The paid_fetch MCP tool parses the 402 body's accepts array, finds
+  // scheme "x-sui" / network "sui-testnet", pays the USDC amount from
+  // the card, and retries with X-SuiPass-Payment.
+
+  const DEMO_PRODUCTS = [
+    {
+      id: "ai-dataset",
+      name: "AI Training Dataset",
+      price: "0.50",
+      description: "High-quality curated dataset for ML model training",
+      rows: 1200000,
+      format: "parquet",
+      size_mb: 340,
+      features: ["Labeled 1.2M rows", "Clean UTF-8", "Schema included", "CC0 license"],
+    },
+    {
+      id: "market-feed",
+      name: "Real-time Market Data Feed",
+      price: "1.00",
+      description: "Live Sui DEX volume, liquidity, and price feeds — top 50 trading pairs",
+      pairs: 50,
+      exchanges: ["Cetus", "DeepBook V3", "Turbos", "Kriya", "FlowX"],
+      update_ms: 1000,
+      fields: ["price", "volume_24h", "tvl", "fee_rate", "spread"],
+      sample: {
+        pair: "SUI/USDC",
+        price: "2.8471",
+        volume_24h: "12458320.50",
+        tvl: "8923451.00",
+        change_24h: "+3.42%",
+      },
+    },
+    {
+      id: "api-access",
+      name: "Premium API Access Pass",
+      price: "2.00",
+      description: "Full API access with webhooks and priority support for 30 days",
+      duration_days: 30,
+      rate_limit: "10,000 req/day",
+      features: ["REST + WebSocket", "Webhook callbacks", "Priority support SLA", "Usage analytics dashboard"],
+      endpoints: [
+        { path: "/v1/market/dex", method: "GET", desc: "All DEX pairs with real-time stats" },
+        { path: "/v1/market/sui/deep", method: "GET", desc: "DeepBook V3 order book snapshots" },
+        { path: "/v1/agent/spend", method: "POST", desc: "Execute agentic payments via card" },
+        { path: "/v1/analytics/volume", method: "GET", desc: "Historical volume aggregations" },
+      ],
+    },
+  ] as const;
+
+  // Default: first product (AI dataset)
+  app.get("/demo/premium-data", async (c) => {
+    const productId = c.req.query("product") ?? "ai-dataset";
+    const product = DEMO_PRODUCTS.find((p) => p.id === productId) ?? DEMO_PRODUCTS[0];
+
+    const paid = c.req.header("X-SuiPass-Payment");
+    if (paid) {
+      // Payment confirmed — serve the premium content
+      return c.json({
+        purchased: true,
+        product: product.name,
+        tx_ref: paid.slice(0, 16) + "...",
+        downloaded_at: new Date().toISOString(),
+        data: product,
+        license: "MIT — free to use, no attribution required",
+      });
+    }
+
+    // Payment required — return x402 compliant 402 with Sui payment option
+    return c.json(
+      {
+        status: "payment_required",
+        accepts: [{ scheme: "x-sui", network: "sui-testnet", amount: product.price }],
+        description: `${product.name} · $${product.price} USDC`,
+        product: {
+          id: product.id,
+          name: product.name,
+          description: product.description,
+          price_usdc: product.price,
+        },
+        available_products: DEMO_PRODUCTS.map((p) => ({
+          id: p.id,
+          name: p.name,
+          price: p.price,
+          description: p.description,
+        })),
+      },
+      402,
+    );
+  });
+
+  // Product listing (no paywall — shows the marketplace catalog)
+  app.get("/demo/products", async (c) => {
+    return c.json({
+      marketplace: "SuiPass Premium Data Marketplace",
+      products: DEMO_PRODUCTS.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: `$${p.price} USDC`,
+        description: p.description,
+      })),
+      payment: {
+        scheme: "x-sui",
+        network: "sui-testnet",
+        how_to_buy: "Use an AI agent with a SuiPass card via the paid_fetch MCP tool",
+      },
+    });
+  });
+
+  // Sponsor info — shows where to send testnet USDC for the sponsor account
+  app.get("/demo/sponsor-info", async (c) => {
+    const sponsorAddress = deps.gasSponsor.sponsorAddress;
+    return c.json({
+      sponsor_address: sponsorAddress,
+      network: "sui-testnet",
+      usdc_coin_type: process.env.SUIPASS_USDC_COIN_TYPE ?? "0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN",
+      purpose: "Fund this address with testnet USDC to enable card swaps, payments, and paid_fetch operations",
+      faucet_guide: [
+        {
+          step: 1,
+          action: "Get testnet SUI for gas",
+          url: "https://faucet.sui.io/",
+          note: "Gas is needed for all Sui transactions"
+        },
+        {
+          step: 2,
+          action: "Get testnet USDC from Circle Faucet",
+          url: "https://faucet.circle.com/",
+          note: "Select Sui Testnet, request 20 USDC (resets every 2 hours)"
+        },
+        {
+          step: 3,
+          action: "Send testnet USDC to the sponsor address above",
+          note: "Use any Sui wallet (Sui Wallet, OKX Wallet) on testnet"
+        },
+        {
+          step: 4,
+          action: "Try the demo again — swaps, payments, and paid_fetch will work",
+          note: "The server auto-detects USDC coins in the sponsor account"
+        },
+      ],
+    });
+  });
+
   // ─── Error handler ───
 
   app.onError(async (err, c) => {
