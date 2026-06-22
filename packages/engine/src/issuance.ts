@@ -146,7 +146,20 @@ export async function issueSubCard(
   });
 
   const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
-  const result = await deps.gasSponsor.executeTransaction(sponsored);
+
+  let result: { digest: string; effects: Record<string, unknown>; error?: string };
+  try {
+    result = await deps.gasSponsor.executeTransaction(sponsored);
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("not signed by the correct sender")) {
+      throw new RefusalError("not_owner", "Sub-card issuance requires the card owner's on-chain signature — this can only be done through the SuiPass dashboard, not via an AI agent.", {
+        card_id: args.parentCardId,
+        hint: "Open the dashboard, select the card, and use 'Issue Sub-Card' to sign with your zkLogin wallet.",
+      });
+    }
+    throw new EngineError("issuance", `failed to issue sub-card: ${msg}`);
+  }
   if (result.error) {
     throw new EngineError("issuance", `failed to issue sub-card: ${result.error}`);
   }

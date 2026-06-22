@@ -47,7 +47,11 @@ export function validateTerms(terms: CardTerms, now: number): void {
 
   if (terms.expiry !== undefined) {
     if (!Number.isInteger(terms.expiry) || terms.expiry <= now) {
-      throw new RefusalError("invalid_terms", "expiry must be in the future", { field: "expiry" });
+      throw new RefusalError("invalid_terms", `expiry must be in the future (server time: ${now}, given: ${terms.expiry})`, {
+        field: "expiry",
+        server_time: now,
+        given: terms.expiry,
+      });
     }
   }
 

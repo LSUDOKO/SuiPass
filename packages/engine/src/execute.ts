@@ -98,8 +98,14 @@ async function handleCetusSwap(
     byAmountIn: true,
   });
 
-  if (!routers || routers.insufficientLiquidity) {
-    throw new RefusalError("invalid_terms", "Cetus: insufficient liquidity");
+  if (!routers || !routers.paths || routers.paths.length === 0) {
+    throw new RefusalError("invalid_terms", "Cetus: no swap routes found for this pair on testnet — Circle USDC may not be listed in Cetus testnet pools");
+  }
+  if (routers.insufficientLiquidity) {
+    throw new RefusalError("invalid_terms", "Cetus: insufficient liquidity for this pair");
+  }
+  if (!routers.paths[0]?.from) {
+    throw new RefusalError("invalid_terms", "Cetus: invalid route data — the aggregator returned incomplete paths");
   }
 
   const txb = new Transaction();
@@ -110,7 +116,7 @@ async function handleCetusSwap(
     sponsored: true,
   });
 
-  const poolId = routers.paths?.[0]?.id ?? "cetus";
+  const poolId = routers.paths[0].id ?? "cetus";
   return executeAndLog(deps, cardId, card, req, txb, poolId, now);
 }
 

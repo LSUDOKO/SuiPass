@@ -187,12 +187,13 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
           }
         }
 
-        // Execute payment
+        // Execute payment — use the gas sponsor's Sui address as recipient
+        // (the demo endpoint doesn't specify a merchant address; a real x402 would)
         const receipt = await locked(() =>
           spend(sd, card.id, {
             kind: "x402",
             mode: "pay",
-            to: "0x0000000000000000000000000000000000000000", // merchant address from x402
+            to: deps.gasSponsor.sponsorAddress,
             amountAtoms: parseUsdcAmount(req.amount),
             memo: `x402: ${args.url}`,
           }),
