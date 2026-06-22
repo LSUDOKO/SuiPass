@@ -43,7 +43,7 @@ export type ExecuteDeps = {
 async function handleDeepBookSwap(
   deps: ExecuteDeps,
   cardId: string,
-  card: { id: string; cap_id: string; user_id: string },
+  card: { id: string; cap_id: string; card_obj_id: string; user_id: string },
   req: ExecuteRequest,
   usdcCoinId: string,
   recipient: string,
@@ -77,7 +77,7 @@ async function handleDeepBookSwap(
 async function handleCetusSwap(
   deps: ExecuteDeps,
   cardId: string,
-  card: { id: string; cap_id: string; user_id: string },
+  card: { id: string; cap_id: string; card_obj_id: string; user_id: string },
   req: ExecuteRequest,
   usdcCoinId: string,
   recipient: string,
@@ -125,7 +125,7 @@ async function handleCetusSwap(
 async function executeAndLog(
   deps: ExecuteDeps,
   cardId: string,
-  card: { id: string; cap_id: string; user_id: string },
+  card: { id: string; cap_id: string; card_obj_id: string; user_id: string },
   req: ExecuteRequest,
   tx: Transaction,
   target: string,
@@ -169,9 +169,9 @@ async function executeAndLog(
     request_id: result.digest,
   });
 
-  // Fire-and-forget on-chain ChargeLog
+  // Fire-and-forget on-chain ChargeLog — use on-chain Card object ID, not UUID
   const logTx = buildLogChargePTB({
-    cardId: card.id,
+    cardId: card.card_obj_id,
     capId: card.cap_id,
     amount: req.amountAtoms,
     fee: 0n,

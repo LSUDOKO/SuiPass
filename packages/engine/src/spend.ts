@@ -192,9 +192,9 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
     throw new RefusalError("invalid_terms", "sponsor has insufficient USDC for this payment");
   }
 
-  // Build PTB
+  // Build PTB — use the on-chain Card object ID, not the database UUID
   const tx = buildSpendPTB({
-    cardId: card.id,
+    cardId: card.card_obj_id,
     capId: card.cap_id,
     amount: amountAtoms,
     recipient,
@@ -230,7 +230,13 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
     result = execResult;
   } catch (e) {
     store.updateCharge(chargeId, { status: "failed" });
-    throw new EngineError("spend", `transaction execution failed: ${e instanceof Error ? e.message : String(e)}`);
+    const msg = e instanceof Error ? e.message : String(e);
+    if (msg.includes("not signed by the correct sender")) {
+      throw new RefusalError("not_owner", "Payment/send requires the card owner's on-chain signature — this can only be done through the SuiPass dashboard, not via an AI agent.", {
+        hint: "Open the dashboard, select the card, and use the pay/send UI to sign with your zkLogin wallet.",
+      });
+    }
+    throw new EngineError("spend", `transaction execution failed: ${msg}`);
   }
 
   if (result.error) {
@@ -258,7 +264,7 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
     });
 
     // Fire-and-forget: create on-chain ChargeLog object for the activity log
-    fireChargeLog(deps, cardId, card, amountAtoms, recipient, req, result.digest).catch(
+    fireChargeLog(deps, card, amountAtoms, recipient, req, result.digest).catch(
       (e) => console.warn(`[spend] log_charge failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`),
     );
 
@@ -353,7 +359,6 @@ export function cardState(store: Store, cardId: string, now: number): {
 
 async function fireChargeLog(
   deps: SpendDeps,
-  cardId: string,
   card: CardRow,
   amountAtoms: bigint,
   recipient: string,
@@ -361,7 +366,7 @@ async function fireChargeLog(
   txDigest: string,
 ): Promise<void> {
   const logTx = buildLogChargePTB({
-    cardId: card.id,
+    cardId: card.card_obj_id,
     capId: card.cap_id,
     amount: amountAtoms,
     fee: 0n,
