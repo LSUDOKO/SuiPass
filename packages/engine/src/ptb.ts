@@ -3,7 +3,7 @@
 
 import { Transaction, coinWithBalance } from "@mysten/sui/transactions";
 import type { CardTerms } from "./terms";
-import { SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, CARD_MODULE, DEEPBOOK_PACKAGE_ID, DEEPBOOK_POOL_MODULE, DEEP_COIN_TYPE } from "./sui";
+import { SUIPASS_PACKAGE_ID, CLOCK_OBJECT_ID, CARD_MODULE, USDC_COIN_TYPE, DEEPBOOK_PACKAGE_ID, DEEPBOOK_POOL_MODULE, DEEP_COIN_TYPE } from "./sui";
 
 // ─── Card Issuance ───
 
@@ -85,6 +85,7 @@ export function buildIssueSubcardPTB(args: {
 }
 
 // ─── Spend ───
+// spend<T> is generic — the coin type T must be passed as a type argument.
 
 export function buildSpendPTB(args: {
   cardId: string;
@@ -94,11 +95,13 @@ export function buildSpendPTB(args: {
   merchant: string;
   memo: string;
   usdcCoinId: string;
+  coinType?: string;      // default: USDC_COIN_TYPE
 }): Transaction {
   const tx = new Transaction();
 
   tx.moveCall({
     target: `${SUIPASS_PACKAGE_ID}::${CARD_MODULE}::spend`,
+    typeArguments: [args.coinType ?? USDC_COIN_TYPE],
     arguments: [
       tx.object(args.cardId),
       tx.object(args.capId),
@@ -113,6 +116,8 @@ export function buildSpendPTB(args: {
 
   return tx;
 }
+
+// ─── On-chain Activity Log ───
 
 // ─── On-chain Activity Log ───
 
