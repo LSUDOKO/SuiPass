@@ -13,8 +13,9 @@ export const SUI_CLIENT = new SuiJsonRpcClient({ url: SUI_RPC_URL, network: SUI_
 export const SUIPASS_PACKAGE_ID = process.env.SUIPASS_PACKAGE_ID!;
 
 // Sui native USDC coin type on testnet/mainnet
+// Default: Circle's official testnet USDC (sponsor must hold this coin type for pay/paid_fetch/spend)
 export const USDC_COIN_TYPE =
-  process.env.SUIPASS_USDC_COIN_TYPE ?? "0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN";
+  process.env.SUIPASS_USDC_COIN_TYPE ?? "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC";
 
 // Clock object ID (constant across all Sui networks)
 export const CLOCK_OBJECT_ID = "0x6";

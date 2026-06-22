@@ -317,7 +317,7 @@ const result = await compileIntent(body.prompt, { chat: deps.veniceChat, resolve
     return c.json({
       sponsor_address: sponsorAddress,
       network: "sui-testnet",
-      usdc_coin_type: process.env.SUIPASS_USDC_COIN_TYPE ?? "0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN",
+      usdc_coin_type: process.env.SUIPASS_USDC_COIN_TYPE ?? "0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC",
       purpose: "Fund this address with testnet USDC to enable card swaps, payments, and paid_fetch operations",
       faucet_guide: [
         {
