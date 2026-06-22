@@ -45,6 +45,9 @@ export async function issueRootCard(
   const user = deps.store.getUser(args.userId);
   if (!user) throw new RefusalError("card_not_found", "user not found");
 
+  // Issue the Card + Cap to the gas sponsor so it can sign for spend transactions
+  // (spend takes &mut Card, requiring the owner's signature on Sui).
+  // The user controls the card through the dashboard (freeze/revoke are DB ops).
   const tx = buildIssueRootCardPTB({
     name: args.name,
     budgetPeriodAmount,
@@ -54,7 +57,7 @@ export async function issueRootCard(
     maxUses,
     expiry,
     merchantAllowlist: merchants,
-    recipient: user.address,
+    recipient: deps.gasSponsor.sponsorAddress,
   });
 
   const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
@@ -128,9 +131,8 @@ export async function issueSubCard(
   const expiry = BigInt(args.terms.expiry ?? 0);
   const merchants = args.terms.merchants ?? [];
 
-  const parentUser = store.getUser(parent.user_id);
-  const recipient = parentUser?.address ?? "";
-
+  // Issue the sub-card + cap to the gas sponsor so it can sign for spend transactions
+  // (same reason as root card — spend takes &mut Card).
   const tx = buildIssueSubcardPTB({
     parentCardId: parent.card_obj_id,
     parentCapId: parent.cap_id,
@@ -142,7 +144,7 @@ export async function issueSubCard(
     maxUses,
     expiry,
     merchantAllowlist: merchants,
-    recipient,
+    recipient: deps.gasSponsor.sponsorAddress,
   });
 
   const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
