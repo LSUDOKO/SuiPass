@@ -140,6 +140,32 @@ function Dashboard({
   const [error, setError] = useState<string | null>(null);
   const [feed, setFeed] = useState<FeedRow[]>([]);
   const [selId, setSelId] = useState<string | null>(null);
+
+  // Auto-select first active card when cards load
+  useEffect(() => {
+    if (!selId && cards.length > 0) {
+      const first = cards.find((c) => !isDead(c.status)) ?? cards[0];
+      if (first) setSelId(first.id);
+    }
+  }, [cards, selId]);
+
+  // Fetch charges for the selected card to populate the activity feed
+  useEffect(() => {
+    if (!selId) return;
+    let live = true;
+    (async () => {
+      try {
+        const { charges } = await api.cardCharges(selId);
+        if (!live) return;
+        const card = cards.find((c) => c.id === selId);
+        const cardName = card?.name ?? "Card";
+        setFeed(charges.map((ch) => ({ ch: ch as import("@/lib/api").Charge, cardName })));
+      } catch {
+        // charges not available yet
+      }
+    })();
+    return () => { live = false; };
+  }, [selId, cards]);
   const [issueOpen, setIssueOpen] = useState(false);
   const [touring, setTouring] = useState(false);
 

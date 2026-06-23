@@ -89,17 +89,28 @@ function ProfileMenu({
   const [open, setOpen] = useState(false);
   const [usdcBal, setUsdcBal] = useState<string | null>(null);
   const [suiBal, setSuiBal] = useState<string | null>(null);
+  const [sponsorAddress, setSponsorAddress] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [nukePhase, setNukePhase] = useState<"idle" | "confirm" | "signing" | "done">("idle");
 
   useEffect(() => {
     if (!address) return;
-    suiClient.getBalance({ owner: address, coinType: USDC_COIN_TYPE })
-      .then((b) => setUsdcBal((Number(b.totalBalance) / 1e6).toFixed(2)))
-      .catch(() => setUsdcBal(null));
-    suiClient.getBalance({ owner: address, coinType: "0x2::sui::SUI" })
-      .then((b) => setSuiBal((Number(b.totalBalance) / 1e9).toFixed(4)))
-      .catch(() => setSuiBal(null));
+    // Fetch balances from server (includes sponsor pool balance + user balance)
+    api.balances()
+      .then((b) => {
+        setUsdcBal(b.sponsor.usdc);
+        setSuiBal(b.sponsor.sui);
+        setSponsorAddress(b.sponsor.address);
+      })
+      .catch(() => {
+        // Fallback: direct RPC query
+        suiClient.getBalance({ owner: address, coinType: USDC_COIN_TYPE })
+          .then((b) => setUsdcBal((Number(b.totalBalance) / 1e6).toFixed(2)))
+          .catch(() => setUsdcBal(null));
+        suiClient.getBalance({ owner: address, coinType: "0x2::sui::SUI" })
+          .then((b) => setSuiBal((Number(b.totalBalance) / 1e9).toFixed(4)))
+          .catch(() => setSuiBal(null));
+      });
   }, [address]);
 
   const menuRef = useRef<HTMLDivElement>(null);

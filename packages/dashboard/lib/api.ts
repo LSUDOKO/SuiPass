@@ -208,6 +208,9 @@ export const api = {
   nuke: () =>
     call<{ nuked: boolean }>("/nuke", { method: "POST" }),
 
+  balances: () =>
+    call<{ sponsor: { address: string; usdc: string; sui: string }; user: { address: string; usdc: string; sui: string } }>("/balances"),
+
   exportKey: () => {
     const key = prompt("Export your zkLogin key to use elsewhere? This will be available until you sign out.");
     if (key) alert("Key export is a placeholder in this build. Use the dashboard to manage your cards.");

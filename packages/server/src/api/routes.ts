@@ -4,7 +4,7 @@
 
 import { Hono } from "hono";
 import { z } from "zod";
-import { RefusalError, EngineError } from "@suipass/engine";
+import { RefusalError, EngineError, USDC_COIN_TYPE } from "@suipass/engine";
 import type { AppDeps } from "../deps";
 import { verifyAuthHeader, type ZkLoginPayload } from "./zklogin";
 import type { CardTerms } from "@suipass/engine";
@@ -82,7 +82,29 @@ export function apiRoutes(deps: AppDeps): Hono {
     const userId = c.get("userId");
     if (!userId) return c.json({ error: "unauthorized" }, 401);
     const cards = deps.store.listCards(userId);
-    return c.json({ cards: cards.map((cr) => ({ id: cr.id, name: cr.name, status: cr.status, terms: cr.terms })) });
+    const now = Math.floor(Date.now() / 1000);
+    const { cardState } = await import("@suipass/engine");
+    return c.json({
+      cards: cards.map((cr) => {
+        const state = cardState(deps.store, cr.id, now);
+        return {
+          id: cr.id,
+          name: cr.name,
+          status: cr.status,
+          terms: cr.terms,
+          card_obj_id: cr.card_obj_id,
+          cap_id: cr.cap_id,
+          created_at: cr.created_at,
+          parent_card_id: cr.parent_card_id,
+          remaining_this_period: state?.remaining_this_period ?? null,
+          remaining_lifetime: state?.remaining_lifetime ?? null,
+          period_resets_at: state?.period_resets_at ?? null,
+          expires_at: state?.expires_at ?? null,
+          uses_remaining: state?.uses_remaining ?? null,
+          subcards: state?.subcards ?? [],
+        };
+      }),
+    });
   });
 
   app.get("/cards/:id", async (c) => {
@@ -181,13 +203,48 @@ const result = await compileIntent(body.prompt, { chat: deps.veniceChat, resolve
     return c.json({ nuked: true });
   });
 
+  // ─── Balances ───
+
+  app.get("/balances", async (c) => {
+    const userId = c.get("userId");
+    if (!userId) return c.json({ error: "unauthorized" }, 401);
+
+    const sponsorAddress = deps.gasSponsor.sponsorAddress;
+    const client = deps.suiClient;
+
+    const [sponsorUsdc, sponsorSui, userUsdc, userSui] = await Promise.all([
+      client.getBalance({ owner: sponsorAddress, coinType: USDC_COIN_TYPE }).then(b => (Number(b.totalBalance) / 1e6).toFixed(2)).catch(() => "0.00"),
+      client.getBalance({ owner: sponsorAddress, coinType: "0x2::sui::SUI" }).then(b => (Number(b.totalBalance) / 1e9).toFixed(4)).catch(() => "0.0000"),
+      c.get("userAddress") ? client.getBalance({ owner: c.get("userAddress")!, coinType: USDC_COIN_TYPE }).then(b => (Number(b.totalBalance) / 1e6).toFixed(2)).catch(() => "0.00") : "0.00",
+      c.get("userAddress") ? client.getBalance({ owner: c.get("userAddress")!, coinType: "0x2::sui::SUI" }).then(b => (Number(b.totalBalance) / 1e9).toFixed(4)).catch(() => "0.0000") : "0.0000",
+    ]);
+
+    return c.json({
+      sponsor: { address: sponsorAddress, usdc: sponsorUsdc, sui: sponsorSui },
+      user: { address: c.get("userAddress") ?? "", usdc: userUsdc, sui: userSui },
+    });
+  });
+
   // ─── Charges / Activity ───
 
   app.get("/cards/:id/charges", async (c) => {
     const card = deps.store.getCard(c.req.param("id")!);
     if (!card) return c.json({ error: "not found" }, 404);
     const charges = deps.store.listCharges(card.id);
-    return c.json({ charges });
+    // Transform to frontend Charge type (convert BigInt atoms → string dollars, rename fields)
+    return c.json({
+      charges: charges.map((ch) => ({
+        id: ch.id,
+        kind: ch.kind,
+        to: ch.to_addr ?? null,
+        amount: (Number(ch.amount_atoms) / 1_000_000).toFixed(2),
+        fee: (Number(ch.fee_atoms) / 1_000_000).toFixed(2),
+        status: ch.status,
+        tx: ch.tx_hash ?? null,
+        memo: ch.memo ?? null,
+        at: ch.created_at,
+      })),
+    });
   });
 
   app.get("/cards/:id/activity", async (c) => {

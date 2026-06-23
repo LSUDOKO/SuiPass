@@ -6,7 +6,7 @@
 
 import { SuiJsonRpcClient } from "@mysten/sui/jsonRpc";
 import { GasSponsor } from "./sponsor";
-import { RefusalError } from "./errors";
+import { RefusalError, EngineError } from "./errors";
 import type { Store } from "./store";
 
 export type OpsDeps = {
@@ -18,33 +18,73 @@ export type OpsDeps = {
 
 export type AdminOpResult = { txHash: string | null; digest?: string };
 
-// ─── Freeze / Unfreeze / Revoke (server-side only) ───
-// On-chain freeze/revoke requires the card owner's signature (zkLogin user),
-// but the gas sponsor signs all server-submitted transactions. For the
-// hackathon, these ops update the database status — the server refuses
-// spends on frozen/revoked cards without an on-chain flag.
+// ─── Freeze / Unfreeze / Revoke (on-chain via gas sponsor) ───
+// Card + Cap are owned by the gas sponsor on-chain, so the gas sponsor
+// can submit freeeze/revoke transactions directly.
 
 export async function freezeCard(deps: OpsDeps, cardId: string): Promise<AdminOpResult> {
   const card = deps.store.getCard(cardId);
   if (!card) throw new RefusalError("card_not_found", "no such card");
   if (card.status !== "active") throw new RefusalError("card_revoked", `card is ${card.status}, cannot freeze`);
-  deps.store.setCardStatus(cardId, "frozen");
-  return { txHash: null };
+
+  const { buildFreezeCardPTB } = await import("./ptb");
+  const tx = buildFreezeCardPTB({ cardId: card.card_obj_id });
+  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+  const result = await deps.gasSponsor.executeTransaction(sponsored);
+
+  if (result.error) {
+    throw new EngineError("ops", `freeze on-chain failed: ${result.error}`);
+  }
+
+  // Extract the created FreezeMarker object ID from effects
+  const created = (result.effects?.created as Array<{ reference: { objectId: string } }>) ?? [];
+  const markerObj = created[0];
+  if (markerObj) {
+    deps.store.setFreezeMarker(cardId, markerObj.reference.objectId);
+  } else {
+    deps.store.setCardStatus(cardId, "frozen");
+  }
+  return { txHash: result.digest, digest: result.digest };
 }
 
 export async function unfreezeCard(deps: OpsDeps, cardId: string): Promise<AdminOpResult> {
   const card = deps.store.getCard(cardId);
   if (!card) throw new RefusalError("card_not_found", "no such card");
   if (card.status !== "frozen") throw new RefusalError("invalid_terms", `card is ${card.status}, not frozen`);
-  deps.store.setCardStatus(cardId, "active");
-  return { txHash: null };
+  if (!card.freeze_marker_id) {
+    // No on-chain freeze marker to clear; just update DB status
+    deps.store.setCardStatus(cardId, "active");
+    return { txHash: null };
+  }
+
+  const { buildUnfreezeCardPTB } = await import("./ptb");
+  const tx = buildUnfreezeCardPTB({ freezeMarkerId: card.freeze_marker_id });
+  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+  const result = await deps.gasSponsor.executeTransaction(sponsored);
+
+  if (result.error) {
+    throw new EngineError("ops", `unfreeze on-chain failed: ${result.error}`);
+  }
+
+  deps.store.clearFreezeMarker(cardId);
+  return { txHash: result.digest, digest: result.digest };
 }
 
 export async function revokeCard(deps: OpsDeps, cardId: string): Promise<AdminOpResult> {
   const card = deps.store.getCard(cardId);
   if (!card) throw new RefusalError("card_not_found", "no such card");
+
+  const { buildRevokeCardPTB } = await import("./ptb");
+  const tx = buildRevokeCardPTB({ cardId: card.card_obj_id });
+  const sponsored = await deps.gasSponsor.sponsorTransaction(tx);
+  const result = await deps.gasSponsor.executeTransaction(sponsored);
+
+  if (result.error) {
+    throw new EngineError("ops", `revoke on-chain failed: ${result.error}`);
+  }
+
   deps.store.setSubtreeStatus(cardId, "revoked");
-  return { txHash: null };
+  return { txHash: result.digest, digest: result.digest };
 }
 
 // ─── Nuke (revoke all user's cards) ───

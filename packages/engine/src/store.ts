@@ -284,10 +284,14 @@ export class Store {
   deleteCardTree(cardId: string): number {
     const ids = this.subtreeIds(cardId);
     if (ids.length === 0) return 0;
+    const delEventLogs = this.db.query(`DELETE FROM event_logs WHERE card_id = $id`);
     const delCharges = this.db.query(`DELETE FROM charges WHERE card_id = $id`);
     const delCard = this.db.query(`DELETE FROM cards WHERE id = $id`);
     const tx = this.db.transaction((items: string[]) => {
-      for (const id of items) delCharges.run({ $id: id });
+      for (const id of items) {
+        delEventLogs.run({ $id: id });
+        delCharges.run({ $id: id });
+      }
       for (const id of [...items].reverse()) delCard.run({ $id: id });
     });
     tx(ids);
