@@ -211,7 +211,10 @@ export function buildRevokeCardPTB(args: {
   const tx = new Transaction();
   tx.moveCall({
     target: `${SUIPASS_PACKAGE_ID}::${CARD_MODULE}::revoke_card`,
-    arguments: [tx.object(args.cardId)],
+    arguments: [
+      tx.object(args.cardId),
+      tx.object(CLOCK_OBJECT_ID),
+    ],
   });
   return tx;
 }

@@ -356,7 +356,7 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
       async (args: { name: string; terms: unknown }) =>
         run(async () => {
           const issued = await issueSubCard(
-            { store: sd.store, gasSponsor: deps.gasSponsor, packageId: deps.packageId },
+            { store: sd.store, suiClient: sd.suiClient, gasSponsor: deps.gasSponsor, packageId: deps.packageId },
             { parentCardId: card.id, name: args.name, terms: args.terms as CardTerms },
           );
           return { card_id: issued.cardId, card_url: cardUrl(issued.secret), terms: issued.terms };

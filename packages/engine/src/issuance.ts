@@ -6,7 +6,7 @@ import { GasSponsor } from "./sponsor";
 import { buildIssueRootCardPTB, buildIssueSubcardPTB } from "./ptb";
 import { RefusalError, EngineError } from "./errors";
 import { parseUsdcAmount, validateTerms, type CardTerms } from "./terms";
-import type { Store } from "./store";
+import type { Store, CardRow } from "./store";
 
 export type IssuedCard = {
   cardId: string;
@@ -23,6 +23,52 @@ export type IssuanceDeps = {
   packageId: string;
   now?: () => number;
 };
+
+// Pre-flight: verify that the parent Card and CardCap objects actually exist on-chain
+// with the expected types before building a PTB that references them.
+// The CommandArgumentError { arg_idx: 0, kind: TypeMismatch } from the Sui fullnode
+// happens when the object at the given ID either doesn't exist or has a different type
+// than what the function expects (e.g. the object was consumed by a revoke/delete).
+async function verifyCardObjectsExist(
+  suiClient: SuiJsonRpcClient,
+  parent: CardRow,
+  operation: string,
+  requireCap = true,
+): Promise<void> {
+  const errors: string[] = [];
+
+  // Check Card object
+  try {
+    const cardObj = await suiClient.getObject({
+      id: parent.card_obj_id,
+      options: { showType: true },
+    });
+    if (!cardObj?.data) {
+      errors.push(`Card object ${parent.card_obj_id} does not exist on-chain (may have been deleted/consumed)`);
+    }
+  } catch (e) {
+    errors.push(`Failed to check Card object ${parent.card_obj_id}: ${e instanceof Error ? e.message : String(e)}`);
+  }
+
+  // Check CardCap object (if required)
+  if (requireCap) {
+    try {
+    const capObj = await suiClient.getObject({
+      id: parent.cap_id,
+      options: { showType: true },
+    });
+    if (!capObj?.data) {
+        errors.push(`CardCap object ${parent.cap_id} does not exist on-chain (may have been deleted/consumed)`);
+      }
+    } catch (e) {
+      errors.push(`Failed to check CardCap object ${parent.cap_id}: ${e instanceof Error ? e.message : String(e)}`);
+    }
+  }
+
+  if (errors.length > 0) {
+    throw new EngineError("issuance", `${operation} pre-flight check failed:\n${errors.join("\n")}`);
+  }
+}
 
 // ─── Root Card ───
 
@@ -107,7 +153,7 @@ export async function issueRootCard(
 // ─── Sub-card ───
 
 export async function issueSubCard(
-  deps: Pick<IssuanceDeps, "store" | "gasSponsor" | "packageId">,
+  deps: Pick<IssuanceDeps, "store" | "gasSponsor" | "packageId"> & { suiClient?: SuiJsonRpcClient },
   args: { parentCardId: string; name: string; terms: CardTerms },
 ): Promise<IssuedCard> {
   const now = Math.floor(Date.now() / 1000);
@@ -120,6 +166,16 @@ export async function issueSubCard(
   }
 
   validateTerms(args.terms, now);
+
+  // Pre-flight: verify parent Card and Cap exist on-chain with expected types
+  // (skip if suiClient not available — e.g. legacy callers)
+  if (deps.suiClient) {
+    await verifyCardObjectsExist(
+      deps.suiClient,
+      parent,
+      'issue_subcard',
+    );
+  }
 
   // Attenuation: child must be subset of parent (simplified — full check in Move)
   const pay = args.terms.pay!;
