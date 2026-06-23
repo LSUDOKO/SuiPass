@@ -89,9 +89,9 @@ AI agents need wallets to pay for data, APIs, compute, and on-chain actions. Tod
 | **USDC Payments** | Send Circle USDC on Sui Testnet via `spend()` PTB | ✅ Live |
 | **Sub-Cards** | Narrower child cards for sub-agents, cascading revoke | ✅ On-chain |
 | **Cascading Revoke** | Revoke parent → all sub-cards die instantly | ✅ On-chain |
-| **DeepBook V3 Swaps** | Swap USDC ↔ SUI via DeepBook CLOB pools | ✅ Wired |
+| **DeepBook V3 Swaps** | Swap USDC ↔ SUI via DeepBook CLOB pools | ✅ Live |
 | **Cetus DEX Swaps** | Route finding + swap via Cetus Aggregator SDK | ✅ Wired |
-| **Walrus Receipts** | Encrypted on-chain audit trails via ChargeLog objects | ✅ Configured |
+| **Walrus Receipts** | Encrypted on-chain audit trails via ChargeLog objects | ✅ Live |
 | **402 Auto-Pay** | `paid_fetch` tool: fetch URL → 402 → auto-pay → retry | ✅ Full flow |
 | **MCP Protocol** | Standard Model Context Protocol tools for any AI agent | ✅ 6 tools |
 | **OAuth 2.1** | PKCE, DCR, rotating refresh tokens for per-card MCP access | ✅ RFC |
@@ -311,6 +311,51 @@ Every `spend()` call enforces **all** of these atomically:
 | **USDT** | `0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN` |
 | **DEEP** | `0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP` |
 
+### DeepBook Swap (Live, Testnet)
+
+The `execute` tool routes USDC through **DeepBook V3** (Sui's native CLOB DEX) to exchange for SUI or other tokens within the card's budget. The PTB calls the pool module's `swap_exact_quote_for_base` or `swap_exact_base_for_quote` function atomically in one transaction. DeepBook V3 pool IDs and coin types are pulled from the `@mysten/deepbook-v3` SDK's canonical testnet constants.
+
+| Pool | Pool ID | Pair |
+|---|---|---|
+| **SUI_DBUSDC** | `0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5` | SUI / DBUSDC |
+| **DEEP_SUI** | `0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f` | DEEP / SUI |
+| **DEEP_DBUSDC** | `0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622` | DEEP / DBUSDC |
+
+DEEP fee is optional — swaps work with zero DEEP via an on-chain zero-balance coin. The DEEP coin type on testnet is `0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP`.
+
+### Walrus Receipt Storage (Live, Testnet)
+
+Every card payment, swap, and x402 transaction generates an on-chain `ChargeLog` object containing the amount, fee, recipient, memo, and transaction digest. These logs are optionally persisted to **Walrus**, Sui's verifiable data platform, for permanent, cross-agent audit trails.
+
+**How it works:**
+
+1. After a successful `spend()` or `execute()` transaction, the server creates a `ChargeLog` on-chain via the Move module's `log_charge` function
+2. The charge memo and metadata are encrypted and pushed to a Walrus publisher endpoint as a content-addressed blob
+3. The blob ID is returned as part of the charge receipt, allowing any agent with the ID to retrieve and verify the receipt
+4. Receipts persist across Walrus storage epochs, surviving server restarts and database resets
+
+**Key capabilities:**
+
+| Capability | Description |
+|---|---|
+| **Content-addressed** | Each receipt is stored by its cryptographic blob ID — tamper-evident by construction |
+| **Cross-agent memory** | A sub-agent can read receipts from the parent's blob store for audit continuity |
+| **Encrypted memos** | Charge memos are encrypted before storage; only holders of the card secret can decrypt |
+| **Walrus HTTP API** | Uses `PUT $PUBLISHER/v1/blobs` for storage and `GET $AGGREGATOR/v1/blobs/<id>` for retrieval |
+| **Deletable blobs** | Receipts are stored as deletable blobs with 5-epoch duration, matching the testnet's epoch cycle |
+| **No extra gas** | Receipt storage is off-chain — the Walrus publisher call happens after the Sui transaction confirms |
+
+**Configuration:**
+
+Set the following environment variables to enable Walrus receipt storage:
+
+| Variable | Description |
+|---|---|
+| `WALRUS_PUBLISHER` | Walrus publisher endpoint URL (e.g. `https://publisher-testnet.wal.app` for testnet) |
+| `WALRUS_AGGREGATOR` | Walrus aggregator endpoint URL (e.g. `https://aggregator-testnet.wal.app` for testnet) |
+
+When both env vars are unset, receipts are stored only on-chain (the `ChargeLog` object) and in the local SQLite database — Walrus persistence is a best-effort enhancement.
+
 ---
 
 ## MCP Tools
@@ -355,6 +400,74 @@ Agent                          SuiPass Server                    Merchant API
   │  { paid: true, content, receipt}│                                │
   │◀─────────────────────────────────│                                │
 ```
+
+---
+
+---
+
+## Demo Gallery
+
+See SuiPass in action — AI agents connecting via MCP, checking card balances, purchasing premium data through the x402 paywall, and receiving on-chain receipts.
+
+<div align="center">
+  <table>
+    <tr>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231424.png" alt="Claude connecting to SuiPass MCP" width="95%" />
+        <br />
+        <em>Claude Desktop connected to SuiPass via the card MCP URL — the agent introspects its spending card</em>
+      </td>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231425.png" alt="Claude checking card status" width="95%" />
+        <br />
+        <em>Agent calls the <code>card</code> tool — returns remaining budget, account address, expiry, and recent charges</em>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231445.png" alt="Claude executing paid_fetch" width="95%" />
+        <br />
+        <em>Agent runs <code>paid_fetch</code> on the demo paywall — fetches premium AI dataset, pays $0.50 USDC on Sui testnet</em>
+      </td>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231508.png" alt="Claude showing premium data result" width="95%" />
+        <br />
+        <em>Premium data returned — 1.2M row AI Training Dataset with schema, licensed under MIT</em>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231528.png" alt="Claude buying market data" width="95%" />
+        <br />
+        <em>Agent purchases the $1.00 Real-time Market Data Feed — DeepBook V3 DEX volume, top 50 trading pairs</em>
+      </td>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231530.png" alt="Claude showing market data" width="95%" />
+        <br />
+        <em>Market feed response — SUI/USDC price $2.8471, 24h volume $12.45M, TVL $8.92M</em>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231645.png" alt="Claude showing budget after purchases" width="95%" />
+        <br />
+        <em>Agent re-checks card balance after spending — $1.50 spent, remaining budget clearly displayed</em>
+      </td>
+      <td width="50%" align="center">
+        <img src="images/swappy-20260622-231646.png" alt="Claude transaction receipts" width="95%" />
+        <br />
+        <em>On-chain transaction receipts — each charge logged with tx digest, amount, fee, and memo</em>
+      </td>
+    </tr>
+  </table>
+</div>
+
+The full end-to-end flow:
+1. **Connect** — Claude Desktop connects to the card via MCP Streamable HTTP
+2. **Check** — Agent reads card status, budget, expiry, and on-chain account address
+3. **Pay** — Agent fetches premium data → 402 → automatic $0.50 USDC payment → premium content unlocked
+4. **Repeat** — Second $1.00 purchase for market data feed, budget decreases in real time
+5. **Verify** — All transactions are gas-sponsored, on-chain, and receipted
 
 ---
 
@@ -424,6 +537,8 @@ sui client publish --gas-budget 100000000
 | `SUIPASS_DASHBOARD_BASE` | ❌ | Dashboard origin for OAuth consent |
 | `SUIPASS_ALLOWED_HOSTS` | ❌ | Extra Host headers for MCP endpoints |
 | `VENICE_API_KEY` | ❌ | Venice AI API key for NL→CardTerms compiler |
+| `WALRUS_PUBLISHER` | ❌ | Walrus publisher endpoint URL (e.g. `https://publisher-testnet.walrus.app` for testnet) |
+| `WALRUS_AGGREGATOR` | ❌ | Walrus aggregator endpoint URL (e.g. `https://aggregator-testnet.walrus.app` for testnet) |
 | `SUIPASS_OAUTH_ACCESS_TTL` | ❌ | OAuth access token TTL in seconds (default: 3600) |
 | `SUIPASS_OAUTH_REFRESH_TTL` | ❌ | OAuth refresh token TTL in seconds (default: 2592000) |
 
@@ -458,13 +573,18 @@ The server deploys to any container platform. The `railway.json` and `Dockerfile
 3. "Buy the market data feed for $1.00"
    → Tool: paid_fetch → pays $1.00 → DeepBook V3 DEX data
 
-4. "Issue a $3 sub-card for my research agent"
+4. "Verify the receipt in Walrus"
+   → Each charge is stored as an encrypted on-chain ChargeLog → 
+     persisted to Walrus as a content-addressed blob → 
+     retrievable by any agent with the blob ID
+
+5. "Issue a $3 sub-card for my research agent"
    → Tool: issue_subcard → MCP URL generated
 
-5. "What's my budget?"
+6. "What's my budget?"
    → $8.50 + $3.00 = $11.50 total, $1.50 spent (13%)
 
-6. "Pay $30 → blocked"
+7. "Pay $30 → blocked"
    → per_tx_exceeded ($5 max) → 0 funds charged
 ```
 
