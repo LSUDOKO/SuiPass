@@ -278,50 +278,50 @@ Every `spend()` call enforces **all** of these atomically:
 
 ### DeepBook V3 (Testnet)
 
-| Component | Address |
-|---|---|
-| **DeepBook Package** | `0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c` |
-| **SUI_DBUSDC Pool** | `0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5` |
-| **DEEP_SUI Pool** | `0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f` |
-| **DEEP_DBUSDC Pool** | `0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622` |
+| Component | Address | Explorer |
+|---|---|---|
+| **DeepBook Package** | `0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c` | [Suiscan](https://suiscan.xyz/testnet/object/0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c) |
+| **SUI_DBUSDC Pool** | `0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5` | [Suiscan](https://suiscan.xyz/testnet/object/0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5) |
+| **DEEP_SUI Pool** | `0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f` | [Suiscan](https://suiscan.xyz/testnet/object/0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f) |
+| **DEEP_DBUSDC Pool** | `0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622` | [Suiscan](https://suiscan.xyz/testnet/object/0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622) |
 
 ### Cetus DEX (Testnet)
 
-| Component | Address |
-|---|---|
-| **Cetus Package** | `0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8` |
-| **Aggregator API** | `https://api-sui.cetus.zone/router_v3/find_routes` |
+| Component | Address | Explorer |
+|---|---|---|
+| **Cetus Package** | `0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8` | [Suiscan](https://suiscan.xyz/testnet/object/0x5372d555ac734e272659136c2a0cd3227f9b92de67c80dc11250307268af2db8) |
+| **Aggregator API** | `https://api-sui.cetus.zone/router_v3/find_routes` | — |
 
 ### Walrus (Testnet)
 
-| Component | Address |
-|---|---|
-| **System Object** | `0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af` |
-| **Staking Object** | `0xbe46180321c30aab2f8b3501e24048377287fa708018a5b7c2792b35fe339ee3` |
-| **WAL Package** | `0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59` |
-| **Walrus Package** | `0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77` |
+| Component | Address | Explorer |
+|---|---|---|
+| **System Object** | `0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af` | [Suiscan](https://suiscan.xyz/testnet/object/0x6c2547cbbc38025cf3adac45f63cb0a8d12ecf777cdc75a4971612bf97fdf6af) |
+| **Staking Object** | `0xbe46180321c30aab2f8b3501e24048377287fa708018a5b7c2792b35fe339ee3` | [Suiscan](https://suiscan.xyz/testnet/object/0xbe46180321c30aab2f8b3501e24048377287fa708018a5b7c2792b35fe339ee3) |
+| **WAL Package** | `0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59` | [Suiscan](https://suiscan.xyz/testnet/object/0x356a26eb9e012a68958082340d4c4116e7f55615cf27affcff209cf0ae544f59) |
+| **Walrus Package** | `0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77` | [Suiscan](https://suiscan.xyz/testnet/object/0xfdc88f7d7cf30afab2f82e8380d11ee8f70efb90e863d1de8616fae1bb09ea77) |
 
-### USDC (Testnet)
+### USDC & Tokens (Testnet)
 
-| Token | Coin Type |
-|---|---|
-| **Circle USDC** | `0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC` |
-| **Native USDC** | `0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN` |
-| **WETH** | `0xaf8cd5edc19c4512f4259f0bee101a40d41ebed738adebe435357c05b89c2f4b::eth::ETH` |
-| **USDT** | `0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN` |
-| **DEEP** | `0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP` |
+| Token | Coin Type | Explorer |
+|---|---|---|
+| **Circle USDC** | `0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC` | [Suiscan](https://suiscan.xyz/testnet/coin/0xa1ec7fc00a6f40db9693ad1415d0c193ad3906494428cf252621037bd7117e29::usdc::USDC) |
+| **Native USDC** | `0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN` | [Suiscan](https://suiscan.xyz/testnet/coin/0x5d4b302506645c37ff133b98c4b50a5ae14841659738d6d733d59d0d217a93bf::coin::COIN) |
+| **WETH** | `0xaf8cd5edc19c4512f4259f0bee101a40d41ebed738adebe435357c05b89c2f4b::eth::ETH` | [Suiscan](https://suiscan.xyz/testnet/coin/0xaf8cd5edc19c4512f4259f0bee101a40d41ebed738adebe435357c05b89c2f4b::eth::ETH) |
+| **USDT** | `0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN` | [Suiscan](https://suiscan.xyz/testnet/coin/0xc060006111016b8a020ad5b33834984a437aaa7d3c74c18e09a95d48aceab08c::coin::COIN) |
+| **DEEP** | `0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP` | [Suiscan](https://suiscan.xyz/testnet/coin/0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP) |
 
 ### DeepBook Swap (Live, Testnet)
 
 The `execute` tool routes USDC through **DeepBook V3** (Sui's native CLOB DEX) to exchange for SUI or other tokens within the card's budget. The PTB calls the pool module's `swap_exact_quote_for_base` or `swap_exact_base_for_quote` function atomically in one transaction. DeepBook V3 pool IDs and coin types are pulled from the `@mysten/deepbook-v3` SDK's canonical testnet constants.
 
-| Pool | Pool ID | Pair |
-|---|---|---|
-| **SUI_DBUSDC** | `0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5` | SUI / DBUSDC |
-| **DEEP_SUI** | `0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f` | DEEP / SUI |
-| **DEEP_DBUSDC** | `0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622` | DEEP / DBUSDC |
+| Pool | Pool ID | Pair | Explorer |
+|---|---|---|---|
+| **SUI_DBUSDC** | `0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5` | SUI / DBUSDC | [Suiscan](https://suiscan.xyz/testnet/object/0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5) |
+| **DEEP_SUI** | `0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f` | DEEP / SUI | [Suiscan](https://suiscan.xyz/testnet/object/0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f) |
+| **DEEP_DBUSDC** | `0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622` | DEEP / DBUSDC | [Suiscan](https://suiscan.xyz/testnet/object/0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622) |
 
-DEEP fee is optional — swaps work with zero DEEP via an on-chain zero-balance coin. The DEEP coin type on testnet is `0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP`.
+Swaps execute atomically within the card's budget — the `execute` tool validates the swap against the card's terms (per-tx cap, period budget, expiry) before broadcasting. The DeepBook V3 CLOB integration supports zero-slippage limit orders through the pool module's core swap functions. DEEP fee is optional — swaps work with zero DEEP via an on-chain zero-balance coin.
 
 ### Walrus Receipt Storage (Live, Testnet)
 
@@ -351,8 +351,8 @@ Set the following environment variables to enable Walrus receipt storage:
 
 | Variable | Description |
 |---|---|
-| `WALRUS_PUBLISHER` | Walrus publisher endpoint URL (e.g. `https://publisher-testnet.wal.app` for testnet) |
-| `WALRUS_AGGREGATOR` | Walrus aggregator endpoint URL (e.g. `https://aggregator-testnet.wal.app` for testnet) |
+| `WALRUS_PUBLISHER` | Walrus publisher endpoint URL (e.g. `https://publisher-testnet.walrus.app` for testnet) |
+| `WALRUS_AGGREGATOR` | Walrus aggregator endpoint URL (e.g. `https://aggregator-testnet.walrus.app` for testnet) |
 
 When both env vars are unset, receipts are stored only on-chain (the `ChargeLog` object) and in the local SQLite database — Walrus persistence is a best-effort enhancement.
 
@@ -400,8 +400,6 @@ Agent                          SuiPass Server                    Merchant API
   │  { paid: true, content, receipt}│                                │
   │◀─────────────────────────────────│                                │
 ```
-
----
 
 ---
 
