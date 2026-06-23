@@ -265,6 +265,70 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
       ),
   );
 
+  // ─── verify_receipt (always available) ───
+
+  server.registerTool(
+    "verify_receipt",
+    {
+      title: "Verify a payment receipt in Walrus",
+      description: "Look up a charge receipt stored as a permanent Walrus blob. Provide a transaction digest to find its receipt, or a direct Walrus blob ID. Returns the full receipt payload stored immutably on Walrus — an on-chain audit trail for every spend.",
+      inputSchema: {
+        tx_digest: z.string().optional().describe("Sui transaction digest to find the receipt for"),
+        blob_id: z.string().optional().describe("Direct Walrus blob ID (base64) to read"),
+      },
+      annotations: { readOnlyHint: true, openWorldHint: false },
+    },
+    async (args: { tx_digest?: string; blob_id?: string }) =>
+      run(async () => {
+        let blobId = args.blob_id;
+
+        // If tx_digest provided, search event logs for the matching walrus receipt
+        if (!blobId && args.tx_digest) {
+          const logs = sd.store.listEventLogs(card.id, 100);
+          for (const log of logs) {
+            if (log.type === "walrus_receipt") {
+              try {
+                const data = JSON.parse(log.data) as Record<string, unknown>;
+                if (data.tx_digest === args.tx_digest || data.charge_id) {
+                  blobId = data.walrus_blob_id as string;
+                  if (blobId) break;
+                }
+              } catch { /* skip malformed */ }
+            }
+            // Also check spend event logs
+            if (log.type === "spend") {
+              try {
+                const data = JSON.parse(log.data) as Record<string, unknown>;
+                if (data.tx_digest === args.tx_digest && data.walrus_blob_id) {
+                  blobId = data.walrus_blob_id as string;
+                  if (blobId) break;
+                }
+              } catch { /* skip */ }
+            }
+          }
+        }
+
+        if (!blobId) {
+          throw new RefusalError("not_found", "No Walrus receipt found. Provide a tx_digest from a completed spend or a direct blob_id.");
+        }
+
+        // Read from Walrus aggregator
+        const { readReceipt } = await import("../walrus");
+        const receipt = await readReceipt(blobId);
+
+        if (!receipt) {
+          throw new RefusalError("not_found", `Walrus blob ${blobId} could not be read — it may have expired or the blob ID is invalid.`);
+        }
+
+        return {
+          verified: true,
+          blob_id: blobId,
+          receipt,
+          aggregator_url: `${process.env.WALRUS_AGGREGATOR ?? "https://aggregator.testnet.walrus.app"}/v1/blobs/${blobId}`,
+        };
+      }),
+  );
+
   // ─── sub-card management ───
 
   if (card.terms.subcards !== false) {

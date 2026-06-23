@@ -104,7 +104,7 @@ export function ChargeList({ rows, empty }: { rows: FeedRow[]; empty: string }) 
             </span>
             <span className="a-rcpt">
               {ch.tx ? (
-                <a href={`https://basescan.org/tx/${ch.tx}`} target="_blank" rel="noreferrer">
+                <a href={`https://suiscan.xyz/testnet/tx/${ch.tx}`} target="_blank" rel="noreferrer">
                   {shortHex(ch.tx, 6, 4)}
                 </a>
               ) : (

@@ -32,6 +32,9 @@ export type SpendDeps = {
   gasSponsor: GasSponsor;
   packageId: string;
   now?: () => number;
+  /** Optional callback to store a receipt to Walrus (or any external store).
+   *  Called fire-and-forget after a successful spend. Returns the blob ID or null. */
+  storeReceipt?: (receipt: Record<string, unknown>) => Promise<string | null>;
 };
 
 // ─── Validation (mirror of on-chain checks) ───
@@ -267,6 +270,38 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
     fireChargeLog(deps, card, amountAtoms, recipient, req, result.digest).catch(
       (e) => console.warn(`[spend] log_charge failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`),
     );
+
+    // Fire-and-forget: store receipt to Walrus (if configured)
+    if (deps.storeReceipt) {
+      deps.storeReceipt({
+        version: "1.0",
+        type: "suipass_charge_receipt",
+        charge_id: chargeId,
+        card_id: cardId,
+        card_name: card.name,
+        network: "sui-testnet",
+        amount_usdc: atomsToUsdc(amountAtoms),
+        fee_usdc: "0.00",
+        recipient,
+        transaction_digest: result.digest,
+        memo: req.memo ?? "",
+        kind: req.kind,
+        timestamp: now,
+        iso_timestamp: new Date(now * 1000).toISOString(),
+        verified: true,
+      }).then((id) => {
+        if (id) {
+          try { deps.store.insertEventLog({
+            id: crypto.randomUUID(),
+            card_id: cardId,
+            charge_id: chargeId,
+            type: "walrus_receipt",
+            data: JSON.stringify({ walrus_blob_id: id, charge_id: chargeId, tx_digest: result.digest }),
+            created_at: now,
+          }); } catch { /* non-fatal */ }
+        }
+      }).catch((e) => console.warn(`[spend] walrus store failed: ${e instanceof Error ? e.message : String(e)}`));
+    }
 
     store.insertEventLog({
       id: crypto.randomUUID(),

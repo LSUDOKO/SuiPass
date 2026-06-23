@@ -7,6 +7,7 @@ import { Ed25519Keypair } from "@mysten/sui/keypairs/ed25519";
 import type { SpendDeps } from "@suipass/engine";
 import { makeZkLoginVerifier, type ZkLoginVerifier } from "./api/zklogin";
 import { veniceChat, type ChatFn } from "./venice/client";
+import { storeReceipt as walrusStoreReceipt } from "./walrus";
 
 export type AppDeps = {
   store: Store;
@@ -57,6 +58,7 @@ export function realDeps(): AppDeps {
   console.log(`[deps] Gas Sponsor: ${gasSponsor.sponsorAddress}`);
   console.log(`[deps] zkLogin: ${googleClientId ? "enabled" : "disabled"}`);
   console.log(`[deps] Venice AI: ${process.env.VENICE_API_KEY ? "enabled" : "disabled"}`);
+  console.log(`[deps] Walrus: ${process.env.WALRUS_PUBLISHER ? "enabled" : "disabled (using testnet defaults)"}`);
 
   return deps;
 }
@@ -73,5 +75,7 @@ export function spendDeps(deps: AppDeps): SpendDeps {
     gasSponsor: deps.gasSponsor,
     packageId: deps.packageId,
     ...deps.spendOverrides,
+    // Fire-and-forget Walrus receipt storage after each successful spend
+    storeReceipt: walrusStoreReceipt,
   };
 }
