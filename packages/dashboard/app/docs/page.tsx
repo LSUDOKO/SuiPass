@@ -37,12 +37,17 @@ const NAV: { group: string; items: { id: string; label: string }[] }[] = [
       { id: "connect", label: "Connecting an Agent" },
       { id: "tools", label: "MCP Tools" },
     ],
-  },
-  {
+  },    {
     group: "Advanced",
     items: [
       { id: "execute", label: "Contract Cards" },
       { id: "subcards", label: "Sub-Cards & Revocation" },
+    ],
+  },
+  {
+    group: "Demo",
+    items: [
+      { id: "gallery", label: "Demo Gallery" },
     ],
   },
   {
@@ -585,7 +590,7 @@ droid     mcp add SuiPass https://<host>/c/<secret>/mcp --type http`} />
               <li className="docli"><b>Gas-sponsored</b> — the GasSponsor server covers the SUI gas fee, so agents never need native tokens.</li>
               <li className="docli"><b>Receipted</b> — each charge is logged with memo, fee, and transaction digest; optionally stored on Walrus for verifiable audit.</li>
             </ul>
-            <h3>DeepBook Swap (testnet)</h3>
+            <h3>DeepBook V3 Swap (Live, Testnet)</h3>
             <p className="docp">
               The <code>execute</code> tool routes USDC through <b>DeepBook V3</b> (Sui's native CLOB DEX) to exchange
               for another token, all within the card's budget. The PTB calls the pool module's
@@ -593,34 +598,104 @@ droid     mcp add SuiPass https://<host>/c/<secret>/mcp --type http`} />
               one transaction. DeepBook V3 pool IDs and coin types are pulled from the
               <code>@mysten/deepbook-v3</code> SDK's canonical testnet constants.
             </p>
+            <p className="docp">
+              Swaps execute atomically within the card's budget — the <code>execute</code> tool validates the swap
+              against the card's terms (per-tx cap, period budget, expiry) before broadcasting. The DeepBook V3 CLOB
+              integration supports zero-slippage limit orders through the pool module's core swap functions.
+            </p>
             <Table
-              head={["Pool", "Pool ID", "Base / Quote"]}
+              head={["Pool", "Pool ID", "Pair", "Explorer"]}
               rows={[
-                [<code key="d">DEEP_SUI</code>, <code key="v">0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f</code>, "DEEP / SUI"],
-                [<code key="d">SUI_DBUSDC</code>, <code key="v">0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5</code>, "SUI / DBUSDC"],
-                [<code key="d">DEEP_DBUSDC</code>, <code key="v">0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622</code>, "DEEP / DBUSDC"],
+                [<code key="d1">SUI_DBUSDC</code>, <code key="v1">0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5</code>, "SUI / DBUSDC", <a key="e1" href="https://suiscan.xyz/testnet/object/0x1c19362ca52b8ffd7a33cee805a67d40f31e6ba303753fd3a4cfdfacea7163a5" target="_blank" rel="noreferrer">Suiscan</a>],
+                [<code key="d2">DEEP_SUI</code>, <code key="v2">0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f</code>, "DEEP / SUI", <a key="e2" href="https://suiscan.xyz/testnet/object/0x48c95963e9eac37a316b7ae04a0deb761bcdcc2b67912374d6036e7f0e9bae9f" target="_blank" rel="noreferrer">Suiscan</a>],
+                [<code key="d3">DEEP_DBUSDC</code>, <code key="v3">0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622</code>, "DEEP / DBUSDC", <a key="e3" href="https://suiscan.xyz/testnet/object/0xe86b991f8632217505fd859445f9803967ac84a9d4a1219065bf191fcb74b622" target="_blank" rel="noreferrer">Suiscan</a>],
               ]}
             />
             <p className="docp">
               DEEP fee is optional — the swap works with <code>deepAmount: 0</code> (no DEEP tokens needed). When the
               sponsor has no DEEP, the PTB builder creates a zero-balance <code>Coin&lt;DEEP&gt;</code> on-chain via
               <code>coinWithBalance</code>, which the pool accepts. The DEEP coin type on testnet is
-              <code>0x36dbef866a1d62bf7328989a10fb2f07d769f4ee587c0de4a0a256e57e0a58a8::deep::DEEP</code>.
+              <code>0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP</code>.
             </p>
-            <h3>Walrus Receipt Storage</h3>
+            <h3>Walrus Receipt Storage (Live, Testnet)</h3>
             <p className="docp">
-              Every card's encrypted charge memos and audit trail can be pushed to <b>Walrus</b>, Sui's verifiable
-              data platform. Receipts are:
+              Every card payment, swap, and <code>x402</code> transaction generates an on-chain <code>ChargeLog</code>
+              object containing the amount, fee, recipient, memo, and transaction digest. These logs are optionally
+              persisted to <b>Walrus</b>, Sui's verifiable data platform, for permanent, cross-agent audit trails.
             </p>
-            <ul className="docul">
-              <li className="docli"><b>Persistent</b> — stored on Walrus, retrievable by blob ID.</li>
-              <li className="docli"><b>Verifiable</b> — each blob is content-addressed and certified by the Walrus committee.</li>
-              <li className="docli"><b>Portable</b> — the same receipt data can be read by any system with the blob ID, enabling cross-agent memory sharing.</li>
-            </ul>
+            <p className="docp"><b>How it works:</b></p>
+            <ol className="docul">
+              <li className="docli">After a successful <code>spend()</code> or <code>execute()</code> transaction, the server creates a <code>ChargeLog</code> on-chain via the Move module's <code>log_charge</code> function.</li>
+              <li className="docli">The charge memo and metadata are encrypted and pushed to a Walrus publisher endpoint as a content-addressed blob via <code>PUT $PUBLISHER/v1/blobs</code>.</li>
+              <li className="docli">The blob ID is returned as part of the charge receipt, allowing any agent with the ID to retrieve and verify the receipt via <code>GET $AGGREGATOR/v1/blobs/&lt;id&gt;</code>.</li>
+              <li className="docli">Receipts persist across Walrus storage epochs, surviving server restarts and database resets.</li>
+            </ol>
+            <Table
+              head={["Capability", "Description"]}
+              rows={[
+                ["Content-addressed", "Each receipt is stored by its cryptographic blob ID — tamper-evident by construction"],
+                ["Cross-agent memory", "A sub-agent can read receipts from the parent's blob store for audit continuity"],
+                ["Encrypted memos", "Charge memos are encrypted before storage; only holders of the card secret can decrypt"],
+                ["Deletable blobs", "Receipts are stored as deletable blobs with 5-epoch duration, matching the testnet's epoch cycle"],
+                ["No extra gas", "Receipt storage is off-chain — the Walrus publisher call happens after the Sui transaction confirms"],
+              ]}
+            />
             <Note warn>
               All transactions run on <b>Sui testnet</b> with testnet USDC. No real money moves. Deploying to mainnet
               requires the Move contract to be re-published with a mainnet USDC package ID.
             </Note>
+          </Section>
+
+          {/* ---- Demo Gallery ---- */}
+          <Section id="gallery" title="Demo Gallery">
+            <p className="docp">
+              See SuiPass in action — AI agents connecting via MCP, checking card balances, purchasing premium data
+              through the x402 paywall, and receiving on-chain receipts.
+            </p>
+
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 16, justifyContent: "center", marginTop: 24, marginBottom: 24 }}>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231424.png" alt="Claude connecting to SuiPass MCP" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Claude Desktop connected to SuiPass via the card MCP URL</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231425.png" alt="Claude checking card status" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Agent calls the <code>card</code> tool — remaining budget, account, expiry</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231445.png" alt="Claude executing paid_fetch" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Agent runs <code>paid_fetch</code> — pays $0.50 USDC on Sui testnet</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231508.png" alt="Claude showing premium data" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Premium data returned — 1.2M row AI Training Dataset</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231528.png" alt="Claude buying market data" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Agent purchases $1.00 Real-time Market Data Feed</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231530.png" alt="Claude market data response" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Market data — SUI/USDC $2.8471, volume $12.45M, TVL $8.92M</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231645.png" alt="Claude budget after purchases" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>Agent re-checks balance — $1.50 spent, remaining budget</p>
+              </div>
+              <div style={{ flex: "1 1 45%", minWidth: 280, textAlign: "center" }}>
+                <img src="/images/swappy-20260622-231646.png" alt="Claude transaction receipts" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--float)" }} />
+                <p style={{ fontSize: "0.85rem", opacity: 0.7, marginTop: 8 }}>On-chain receipts — tx digest, amount, fee, and memo</p>
+              </div>
+            </div>
+
+            <p className="docp"><b>The full end-to-end flow:</b></p>
+            <ol className="docul">
+              <li className="docli"><b>Connect</b> — Claude Desktop connects to the card via MCP Streamable HTTP</li>
+              <li className="docli"><b>Check</b> — Agent reads card status, budget, expiry, and on-chain account address</li>
+              <li className="docli"><b>Pay</b> — Agent fetches premium data → 402 → automatic $0.50 USDC payment → content unlocked</li>
+              <li className="docli"><b>Repeat</b> — Second $1.00 purchase for market data feed, budget decreases in real time</li>
+              <li className="docli"><b>Verify</b> — All transactions are gas-sponsored, on-chain, and receipted</li>
+            </ol>
           </Section>
 
           {/* ---- Security ---- */}
