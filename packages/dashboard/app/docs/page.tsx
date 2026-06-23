@@ -257,16 +257,16 @@ export default function DocsPage() {
               <div className="docfact">
                 <div className="fk">Dashboard</div>
                 <div className="fv">
-                  <a href="https://suipass.s0nderlabs.xyz" target="_blank" rel="noreferrer">
-                    suipass.s0nderlabs.xyz
+                  <a href="https://suipass-server.onrender.com" target="_blank" rel="noreferrer">
+                    suipass-server.onrender.com
                   </a>
                 </div>
               </div>
               <div className="docfact">
                 <div className="fk">API + MCP</div>
                 <div className="fv">
-                  <a href="https://suipass-api.s0nderlabs.xyz" target="_blank" rel="noreferrer">
-                    suipass-api.s0nderlabs.xyz
+                  <a href="https://suipass-server.onrender.com" target="_blank" rel="noreferrer">
+                    suipass-server.onrender.com
                   </a>
                 </div>
               </div>
@@ -812,42 +812,42 @@ bun run --cwd packages/dashboard dev   # dashboard on :4071`} />
             <ul className="docul">
               <li className="docli">
                 <b>Move contract.</b>{" "}
-                <a href="https://github.com/s0nderlabs/suipass/blob/main/packages/engine/sui/sources/card.move" target="_blank" rel="noreferrer">
+                <a href="https://github.com/LSUDOKO/SuiPass/blob/main/packages/engine/sui/sources/card.move" target="_blank" rel="noreferrer">
                   <code>card.move</code>
                 </a>
                 — Card object, CardCap capability, spend/issue_subcard/revoke/freeze entry functions.
               </li>
               <li className="docli">
                 <b>PTB builder.</b>{" "}
-                <a href="https://github.com/s0nderlabs/suipass/blob/main/packages/engine/src/ptb.ts" target="_blank" rel="noreferrer">
+                <a href="https://github.com/LSUDOKO/SuiPass/blob/main/packages/engine/src/ptb.ts" target="_blank" rel="noreferrer">
                   <code>ptb.ts</code>
                 </a>
                 — builds Programmable Transaction Blocks for spend, issue, revoke, and swap.
               </li>
               <li className="docli">
                 <b>GasSponsor.</b>{" "}
-                <a href="https://github.com/s0nderlabs/suipass/blob/main/packages/engine/src/sponsor.ts" target="_blank" rel="noreferrer">
+                <a href="https://github.com/LSUDOKO/SuiPass/blob/main/packages/engine/src/sponsor.ts" target="_blank" rel="noreferrer">
                   <code>sponsor.ts</code>
                 </a>
                 — sponsored transaction server that validates and co-signs PTBs.
               </li>
               <li className="docli">
                 <b>zkLogin.</b>{" "}
-                <a href="https://github.com/s0nderlabs/suipass/blob/main/packages/server/src/api/zklogin.ts" target="_blank" rel="noreferrer">
+                <a href="https://github.com/LSUDOKO/SuiPass/blob/main/packages/server/src/api/zklogin.ts" target="_blank" rel="noreferrer">
                   <code>zklogin.ts</code>
                 </a>
                 — Google OAuth → Sui address derivation via Enoki.
               </li>
               <li className="docli">
                 <b>Venice compiler.</b>{" "}
-                <a href="https://github.com/s0nderlabs/suipass/blob/main/packages/server/src/venice/compiler.ts" target="_blank" rel="noreferrer">
+                <a href="https://github.com/LSUDOKO/SuiPass/blob/main/packages/server/src/venice/compiler.ts" target="_blank" rel="noreferrer">
                   <code>compiler.ts</code>
                 </a>
                 — plain language → CardTerms with verified address resolution.
               </li>
               <li className="docli">
                 <b>Walrus receipts.</b>{" "}
-                <a href="https://github.com/s0nderlabs/suipass/blob/main/packages/engine/src/store.ts" target="_blank" rel="noreferrer">
+                <a href="https://github.com/LSUDOKO/SuiPass/blob/main/packages/engine/src/store.ts" target="_blank" rel="noreferrer">
                   <code>store.ts</code>
                 </a>
                 — encrypted blob storage on Walrus for charge memos and audit trails.
