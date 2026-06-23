@@ -1,7 +1,0 @@
-{
-  "rootDirectory": "packages/dashboard",
-  "framework": "nextjs",
-  "buildCommand": "cd packages/dashboard && bun run build",
-  "installCommand": "bun install",
-  "outputDirectory": ".next"
-}
