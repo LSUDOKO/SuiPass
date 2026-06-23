@@ -35,6 +35,8 @@ packages/*/scripts/*.workflow.js
 
 # local ts-sdks fork and sui binaries (switched to npm @mysten/sui)
 ts-sdks/
+move-analyzer
+sui-faucet
 sui-debug
 sui-node
 sui-tool

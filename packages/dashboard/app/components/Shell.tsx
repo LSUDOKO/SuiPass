@@ -134,58 +134,81 @@ function ProfileMenu({
         )}
       </button>
       {open && (
-        <div className="pop-shell" ref={menuRef} data-testid="profile-menu" style={{ width: 260 }}>
-          <div className="pop-head" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span className="avatar-wallet">{address?.slice(2, 4).toUpperCase()}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="data" style={{ fontSize: 13, fontWeight: 500 }}>{shortHex(address)}</div>
-              {aggregate && <div style={{ fontSize: 11, color: "var(--body)", opacity: 0.6, marginTop: 1 }}>{aggregate} · delegated</div>}
+        <div className="promenu" ref={menuRef} data-testid="profile-menu" style={{ position: "absolute", bottom: "calc(100% + 10px)", left: 0, right: "auto", top: "auto", minWidth: 270, margin: 0 }}>
+          {/* Identity */}
+          <div className="prowho">
+            <span className="avatar">{address?.slice(2, 4).toUpperCase()}</span>
+            <div className="prowhocol">
+              <div className="em">{shortHex(address)}</div>
+              {aggregate && <div className="proagg">{aggregate} · delegated</div>}
             </div>
           </div>
-          <hr />
-          <div style={{ display: "flex", gap: 8, padding: "4px 0" }}>
-            <div style={{ flex: 1, background: "var(--inset)", borderRadius: 8, padding: "6px 10px" }}>
-              <div style={{ fontSize: 11, opacity: 0.5 }}>USDC</div>
-              <div className="data" style={{ fontSize: 13 }}>${usdcBal ?? "–"}</div>
+
+          {/* Balances */}
+          <div className="prowallet">
+            <div className="probal">
+              <span className="probalfig">${usdcBal ?? "–"}</span>
+              <span className="proballbl">USDC</span>
             </div>
-            <div style={{ flex: 1, background: "var(--inset)", borderRadius: 8, padding: "6px 10px" }}>
-              <div style={{ fontSize: 11, opacity: 0.5 }}>SUI</div>
-              <div className="data" style={{ fontSize: 13 }}>{suiBal ?? "–"}</div>
+            <div className="proassets">
+              <span className="proasset">
+                <span className="proassetfig">{suiBal ?? "–"}</span> SUI
+              </span>
             </div>
           </div>
-          <p style={{ fontSize: 11, opacity: 0.5, margin: "4px 0 8px", lineHeight: 1.4 }}>
-            Send USDC on Sui Testnet to this address to fund your cards
-          </p>
-          <button className="pop-btn" onClick={() => { copyText(address ?? ""); setCopied(true); setTimeout(() => setCopied(false), 1500); }}>
-            {copied ? <IconCheck /> : <IconCopy />} Copy Address
+
+          {/* Copy address — compact with auto-sized icon */}
+          <button
+            className={`proaddr${copied ? " done" : ""}`}
+            onClick={() => { copyText(address ?? ""); setCopied(true); setTimeout(() => setCopied(false), 1500); }}
+          >
+            <span className="proaddrtext">{address}</span>
+            {copied ? <IconCheck /> : <IconCopy />}
           </button>
+
+          <div className="pronote">Send USDC on Sui Testnet to this address to fund your cards</div>
+
+          {/* Export */}
+          <div className="proexport">
+            <button className="proitem" onClick={() => { api.exportKey?.(); }}>
+              Export Key
+            </button>
+          </div>
+
+          {/* Nuke */}
           {nukeable && (
             <>
-              <hr />
               {nukePhase === "idle" ? (
-                <button className="pop-btn danger" onClick={() => setNukePhase("confirm")}>
-                  Nuke All Cards
-                </button>
+                <>
+                  <hr />
+                  <div className="prodanger">
+                    <button className="proitem danger" onClick={() => setNukePhase("confirm")}>
+                      Nuke All Cards
+                    </button>
+                  </div>
+                </>
               ) : nukePhase === "confirm" ? (
-                <div style={{ padding: "4px 0" }}>
+                <div style={{ padding: "4px 10px 6px" }}>
                   <p style={{ fontSize: 11, opacity: 0.7, marginBottom: 6, lineHeight: 1.4 }}>
                     One on-chain tx revokes every card this wallet ever issued
                   </p>
                   <div style={{ display: "flex", gap: 6 }}>
-                    <button className="pop-btn" style={{ flex: 1, justifyContent: "center" }} onClick={() => setNukePhase("idle")}>Cancel</button>
-                    <button className="pop-btn danger" style={{ flex: 1, justifyContent: "center" }} onClick={handleNuke}>Confirm</button>
+                    <button className="proitem" style={{ flex: 1, justifyContent: "center", textAlign: "center" }} onClick={() => setNukePhase("idle")}>Cancel</button>
+                    <button className="proitem danger" style={{ flex: 1, justifyContent: "center", textAlign: "center" }} onClick={handleNuke}>Confirm</button>
                   </div>
                 </div>
               ) : nukePhase === "signing" ? (
-                <div className="pop-btn" style={{ opacity: 0.6, justifyContent: "center" }}>Revoking…</div>
+                <div className="proitem" style={{ opacity: 0.6, justifyContent: "center", textAlign: "center" }}>Revoking…</div>
               ) : (
-                <div className="pop-btn" style={{ justifyContent: "center", color: "var(--accent)" }}>All cards revoked</div>
+                <div className="proitem" style={{ justifyContent: "center", textAlign: "center", color: "var(--accent)" }}>All cards revoked</div>
               )}
             </>
           )}
-          <hr />
-          <button className="pop-btn" onClick={() => { api.exportKey?.(); }}>Export Key</button>
-          <button className="pop-btn danger" onClick={onLogout}>Sign Out</button>
+
+          {/* Sign Out */}
+          <div className="prodanger">
+            <button className="proitem danger" onClick={onLogout}>Sign Out</button>
+          </div>
         </div>
       )}
     </div>
