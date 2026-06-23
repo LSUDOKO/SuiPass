@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="https://raw.githubusercontent.com/LSUDOKO/SuiPass/main/assets/logo.svg" width="120" alt="SuiPass" />
+  <img width="1584" height="396" alt="SUI" src="https://github.com/user-attachments/assets/f2716466-816e-4c70-b846-ac0ea39709cc" />
 </p>
 
 <h1 align="center">SuiPass</h1>
