@@ -2,7 +2,6 @@
   <img width="1584" height="396" alt="SUI" src="https://github.com/user-attachments/assets/f2716466-816e-4c70-b846-ac0ea39709cc" />
 </p>
 
-<h1 align="center">SuiPass</h1>
 <p align="center"><strong>Agentic Spending Cards on Sui</strong></p>
 
 <p align="center">
@@ -12,21 +11,6 @@
   <a href="#deployed-contracts">Contracts</a> •
   <a href="#quick-start">Quick Start</a> •
   <a href="#mcp-tools">MCP Tools</a>
-</p>
-
-<p align="center">
-  <a href="https://suipass-server.onrender.com/health">
-    <img src="https://img.shields.io/badge/Server-Live-brightgreen" />
-  </a>
-  <a href="https://suiscan.xyz/testnet/object/0x1d020a948ce614e47c60d3fa36b90a90e74672878fc881f3091272735a14e969">
-    <img src="https://img.shields.io/badge/Move-Package-blue" />
-  </a>
-  <a href="https://sui.io">
-    <img src="https://img.shields.io/badge/Sui-Testnet-4da2ff" />
-  </a>
-  <a href="https://github.com/LSUDOKO/SuiPass/blob/main/LICENSE">
-    <img src="https://img.shields.io/badge/license-MIT-green" />
-  </a>
 </p>
 
 ---
