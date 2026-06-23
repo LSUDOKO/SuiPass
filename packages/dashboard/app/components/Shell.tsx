@@ -89,21 +89,18 @@ function ProfileMenu({
   const [open, setOpen] = useState(false);
   const [usdcBal, setUsdcBal] = useState<string | null>(null);
   const [suiBal, setSuiBal] = useState<string | null>(null);
-  const [sponsorAddress, setSponsorAddress] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [nukePhase, setNukePhase] = useState<"idle" | "confirm" | "signing" | "done">("idle");
+  const [exportOpen, setExportOpen] = useState(false);
 
   useEffect(() => {
     if (!address) return;
-    // Fetch balances from server (includes sponsor pool balance + user balance)
     api.balances()
       .then((b) => {
         setUsdcBal(b.sponsor.usdc);
         setSuiBal(b.sponsor.sui);
-        setSponsorAddress(b.sponsor.address);
       })
       .catch(() => {
-        // Fallback: direct RPC query
         suiClient.getBalance({ owner: address, coinType: USDC_COIN_TYPE })
           .then((b) => setUsdcBal((Number(b.totalBalance) / 1e6).toFixed(2)))
           .catch(() => setUsdcBal(null));
@@ -181,7 +178,7 @@ function ProfileMenu({
 
           {/* Export */}
           <div className="proexport">
-            <button className="proitem" onClick={() => { api.exportKey?.(); }}>
+            <button className="proitem" onClick={() => setExportOpen(true)}>
               Export Key
             </button>
           </div>
@@ -222,6 +219,130 @@ function ProfileMenu({
           </div>
         </div>
       )}
+      {exportOpen && (
+        <ExportKeyModal address={address ?? ""} onClose={() => setExportOpen(false)} />
+      )}
     </div>
+  );
+}
+
+// ─── Export Key Modal ───
+
+function ExportKeyModal({ address, onClose }: { address: string; onClose: () => void }) {
+  const [token, setToken] = useState<string | null>(null);
+  const [userInfo, setUserInfo] = useState<Record<string, unknown> | null>(null);
+  const [tokenCopied, setTokenCopied] = useState(false);
+  const [addrCopied, setAddrCopied] = useState(false);
+  const [revealed, setRevealed] = useState(false);
+
+  useEffect(() => {
+    api.exportKey().then((result) => {
+      if (result && typeof result === "object" && "token" in result) {
+        const r = result as { token: string; [key: string]: unknown };
+        setToken(r.token);
+        const { token: _, ...info } = r;
+        if (Object.keys(info).length > 0) setUserInfo(info);
+      }
+    });
+  }, []);
+
+  const handleCopyToken = () => {
+    if (token) {
+      copyText(token);
+      setTokenCopied(true);
+      setTimeout(() => setTokenCopied(false), 2000);
+    }
+  };
+
+  const handleCopyAddr = () => {
+    copyText(address);
+    setAddrCopied(true);
+    setTimeout(() => setAddrCopied(false), 2000);
+  };
+
+  return createPortal(
+    <motion.div
+      className="cscrim"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <motion.div
+        className="confirm"
+        initial={{ opacity: 0, y: 20, scale: 0.96 }}
+        animate={{ opacity: 1, y: 0, scale: 1, transition: { type: "spring", stiffness: 360, damping: 30 } }}
+        exit={{ opacity: 0, y: 12, scale: 0.98, transition: { duration: 0.16 } }}
+      >
+        <div className="cicon ok">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4" />
+          </svg>
+        </div>
+        <h3>Export zkLogin Key</h3>
+        <p style={{ marginBottom: 14 }}>
+          Export your Google OAuth session token to use this SuiPass wallet in another zkLogin-compatible client.
+          The token is valid until you sign out or it expires.
+        </p>
+
+        {!revealed ? (
+          <>
+            <div
+              className="proaddr"
+              style={{ cursor: "pointer", margin: "0 0 12px", width: "100%", background: "var(--warn-tint)", border: "1px solid rgba(176, 122, 28, 0.2)" }}
+              onClick={() => setRevealed(true)}
+            >
+              <span className="proaddrtext" style={{ color: "var(--warn-ink)", textAlign: "center" }}>
+                Click to reveal your session token — treat it like a private key
+              </span>
+            </div>
+            <p style={{ fontSize: 11.5, color: "var(--label)", lineHeight: 1.55, marginBottom: 14 }}>
+              Anyone with this token can access your SuiPass account until it expires. Only export on trusted devices.
+            </p>
+          </>
+        ) : (
+          <>
+            {/* Derived Sui Address */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: "var(--label)", marginBottom: 4 }}>Sui Address</div>
+              <button
+                className={`proaddr${addrCopied ? " done" : ""}`}
+                style={{ width: "100%", margin: 0, cursor: "pointer" }}
+                onClick={handleCopyAddr}
+              >
+                <span className="proaddrtext">{address}</span>
+                {addrCopied ? <IconCheck /> : <IconCopy />}
+              </button>
+            </div>
+
+            {/* JWT Token */}
+            <div style={{ marginBottom: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 500, color: "var(--label)", marginBottom: 4 }}>
+                Session Token (JWT)
+                {userInfo?.email ? <span style={{ fontWeight: 400, marginLeft: 6 }}>· {String(userInfo.email)}</span> : null}
+              </div>
+              <button
+                className={`proaddr${tokenCopied ? " done" : ""}`}
+                style={{ width: "100%", margin: 0, cursor: "pointer" }}
+                onClick={handleCopyToken}
+              >
+                <span className="proaddrtext" style={{ fontSize: 9 }}>{token ?? "Loading..."}</span>
+                {tokenCopied ? <IconCheck /> : <IconCopy />}
+              </button>
+            </div>
+
+            <p style={{ fontSize: 11, color: "var(--label)", lineHeight: 1.55, marginBottom: 4 }}>
+              This is a Google OAuth id_token. It authorizes your zkLogin session on Sui.
+              Keep it secret — it grants access to your cards until revoked or expired.
+            </p>
+          </>
+        )}
+
+        <div className="cbtns">
+          <button className="mghost" onClick={onClose}>Close</button>
+        </div>
+      </motion.div>
+    </motion.div>,
+    document.body,
   );
 }

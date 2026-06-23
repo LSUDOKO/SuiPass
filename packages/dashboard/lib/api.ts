@@ -211,9 +211,25 @@ export const api = {
   balances: () =>
     call<{ sponsor: { address: string; usdc: string; sui: string }; user: { address: string; usdc: string; sui: string } }>("/balances"),
 
+  getToken: () => {
+    if (typeof window === "undefined") return null;
+    return localStorage.getItem("suipass_zk_token");
+  },
+
   exportKey: () => {
-    const key = prompt("Export your zkLogin key to use elsewhere? This will be available until you sign out.");
-    if (key) alert("Key export is a placeholder in this build. Use the dashboard to manage your cards.");
-    return Promise.resolve();
+    const token = getToken();
+    if (!token) {
+      alert("No session token found — sign in again to export your key.");
+      return Promise.resolve();
+    }
+    // Decode JWT payload to show user info
+    try {
+      const parts = token.split(".");
+      if (parts.length === 3) {
+        const payload = JSON.parse(atob(parts[1]!));
+        return Promise.resolve({ token, ...payload });
+      }
+    } catch { /* ignore */ }
+    return Promise.resolve({ token });
   },
 };
