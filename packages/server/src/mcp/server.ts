@@ -13,6 +13,7 @@ import {
   cardState as getCardState,
   spend,
   executeOperation,
+  findOrAcquireDBUSDC,
   issueSubCard,
   buildRevokeCardPTB,
   buildFreezeCardPTB,
@@ -213,21 +214,24 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
       }),
   );
 
-  // ─── execute (protocol calls — DeepBook swaps) ───
+  // ─── execute (protocol calls — DeepBook & Cetus swaps) ───
+  // DeepBook V3 pools on testnet trade against DBUSDC (not Circle USDC).
+  // When selling the quote (swap_exact_quote_for_base), the handler auto-acquires
+  // DBUSDC by converting Circle USDC via Cetus if needed.
 
   server.registerTool(
     "execute",
     {
       title: "Execute a protocol operation",
-      description: "Run a DeFi operation within this card's scope. Supports DeepBook V3 (deepbook) and Cetus DEX (cetus) swaps. The card budget is deducted by the swap amount.",
+      description: "Run a DeFi operation within this card's scope. Supports DeepBook V3 and Cetus DEX swaps. The card budget is deducted by the swap amount.\n\nDeepBook (CLOB): swap_exact_quote_for_base (sell DBUSDC→buy SUI) or swap_exact_base_for_quote (sell SUI→buy DBUSDC). DeepBook pools use DBUSDC stablecoin — if the sponsor has Circle USDC, it will be auto-converted via Cetus first.\n\nCetus (AMM): any coin pair supported by Cetus testnet liquidity pools.",
       inputSchema: {
-        protocol: z.enum(["deepbook", "cetus"]).describe("the protocol to use: deepbook or cetus"),
-        action: z.string().describe("the operation: swap_exact_quote_for_base (sell USDC, buy SUI), swap_exact_base_for_quote (sell SUI, buy USDC), or swap (generic)"),
-        sell_coin: z.string().describe("coin type to sell, e.g. 0xa1ec7fc0...::usdc::USDC for Circle USDC"),
-        buy_coin: z.string().describe("coin type to buy, e.g. 0x2::sui::SUI"),
+        protocol: z.enum(["deepbook", "cetus"]).describe("the protocol: deepbook (CLOB order book) or cetus (AMM)"),
+        action: z.enum(["swap_exact_quote_for_base", "swap_exact_base_for_quote"]).describe("for deepbook: swap_exact_quote_for_base (sell stable, buy base) or swap_exact_base_for_quote (sell base, buy stable)"),
+        sell_coin: z.string().describe("coin type to sell, e.g. 0x2::sui::SUI for SUI. For DeepBook quote sells, the system auto-maps to DBUSDC."),
+        buy_coin: z.string().describe("coin type to buy, e.g. 0x2::sui::SUI for SUI"),
         amount: z.string().regex(/^\d+(\.\d{1,6})?$/).describe("amount to sell, decimal string, e.g. \"10.00\""),
-        min_out: z.string().regex(/^\d+$/).optional().describe("minimum buy amount in atomic units (raw, no decimals), e.g. 1000000"),
-        pool_id: z.string().optional().describe("DeepBook pool object ID (optional, uses default USDC/SUI pool)"),
+        min_out: z.string().regex(/^\d+$/).optional().describe("minimum buy amount in atomic units (raw, no decimals)"),
+        pool_id: z.string().optional().describe("DeepBook pool object ID (optional, uses default SUI/DBUSDC pool)"),
         memo: z.string().max(280).optional(),
         idempotency_key: z.string().max(128).optional(),
       },
@@ -263,6 +267,42 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
           ),
         ),
       ),
+  );
+
+  // ─── acquire_dbusdc (DeepBook utility) ───
+
+  server.registerTool(
+    "acquire_dbusdc",
+    {
+      title: "Acquire DBUSDC for DeepBook swaps",
+      description: "Ensure the sponsor holds enough DBUSDC for a DeepBook swap. If the sponsor has Circle USDC but no DBUSDC, this tool auto-converts USDC→DBUSDC via Cetus. Returns the DBUSDC coin balance after acquisition.",
+      inputSchema: {
+        amount: z.string().regex(/^\d+(\.\d{1,6})?$/).describe("DBUSDC amount needed, decimal string, e.g. \"10.00\""),
+      },
+      annotations: { readOnlyHint: false, openWorldHint: false },
+    },
+    async (args: { amount: string }) =>
+      run(async () => {
+        const amountAtoms = parseUsdcAmount(args.amount);
+        const execDeps: ExecuteDeps = {
+          store: sd.store,
+          suiClient: sd.suiClient,
+          gasSponsor: deps.gasSponsor,
+          packageId: deps.packageId,
+        };
+        const dbusdcCoinId = await findOrAcquireDBUSDC(execDeps, amountAtoms);
+        if (!dbusdcCoinId) {
+          throw new RefusalError(
+            "invalid_terms",
+            "Could not acquire DBUSDC. Sponsor needs Circle USDC on testnet to convert, or needs DBUSDC directly.",
+          );
+        }
+        return {
+          acquired: true,
+          dbusdc_coin_id: dbusdcCoinId,
+          amount: args.amount,
+        };
+      }),
   );
 
   // ─── verify_receipt (always available) ───

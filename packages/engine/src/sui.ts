@@ -20,10 +20,18 @@ export const USDC_COIN_TYPE =
 // Clock object ID (constant across all Sui networks)
 export const CLOCK_OBJECT_ID = "0x6";
 
-// DeepBook V3 testnet (from @mysten/deepbook-v3 SDK)
+// ─── DeepBook V3 testnet ───
+// Package IDs from @mysten/deepbook-v3 SDK canonical values.
+// The pool implementation package is where the actual swap functions live.
 export const DEEPBOOK_PACKAGE_ID = "0x22be4cade64bf2d02412c7e8d0e8beea2f78828b948118d46735315409371a3c";
 export const DEEPBOOK_POOL_MODULE = "pool";
+
+// DEEP coin: used for DeepBook protocol fees (zero-balance coin works as fee)
 export const DEEP_COIN_TYPE = "0x36dbef866a1d62bf7328989a10fb2f07d769f4ee587c0de4a0a256e57e0a58a8::deep::DEEP";
+
+// DBUSDC: the DeepBook-supported stablecoin on testnet (NOT Circle USDC)
+// Circle testnet USDC differs from DBUSDC; DeepBook pools trade against DBUSDC.
+export const DBUSDC_COIN_TYPE = "0xf7152c05930480cd740d7311b5b8b45c6f488e3a53a11c3f74a6fac36a52e0d7::DBUSDC::DBUSDC";
 
 // DeepBook V3 testnet pools (from @mysten/deepbook-v3 SDK canonical values)
 export const DEEPBOOK_POOL_IDS: Record<string, string> = {

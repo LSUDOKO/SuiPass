@@ -9,6 +9,7 @@ import { findSponsorCoin, moveErrorToRefusal } from "./sui";
 import {
   SUI_CLIENT,
   USDC_COIN_TYPE,
+  DBUSDC_COIN_TYPE,
   DEEP_COIN_TYPE,
   DEEPBOOK_DEFAULT_POOL,
 } from "./sui";
@@ -36,33 +37,127 @@ export type ExecuteDeps = {
   gasSponsor: GasSponsor;
   packageId: string;
   now?: () => number;
-};
+};const SUI_COIN_TYPE = "0x2::sui::SUI";
 
 // ─── DeepBook swap ───
+
+/** Find a DBUSDC coin owned by the sponsor. If none exists, try to convert
+ *  Circle USDC to DBUSDC via Cetus first, then find the resulting coin. */
+export async function findOrAcquireDBUSDC(
+  deps: ExecuteDeps,
+  minBalance: bigint,
+): Promise<string | null> {
+  const client = deps.suiClient ?? SUI_CLIENT;
+  const owner = deps.gasSponsor.sponsorAddress;
+
+  // 1) Check if sponsor already has DBUSDC
+  const existing = await findSponsorCoin(client, owner, DBUSDC_COIN_TYPE, minBalance);
+  if (existing) return existing;
+
+  // 2) Check if sponsor has Circle USDC to convert
+  const usdcCoin = await findSponsorCoin(client, owner, USDC_COIN_TYPE, minBalance);
+  if (!usdcCoin) return null;
+
+  // 3) Try to swap Circle USDC → DBUSDC via Cetus
+  console.log(`[execute] acquiring DBUSDC: swapping ${minBalance} Circle USDC for DBUSDC via Cetus`);
+  try {
+    const cetusClient = new AggregatorClient({
+      env: Env.Testnet,
+      signer: owner,
+    });
+
+    const routers = await cetusClient.findRouters({
+      from: USDC_COIN_TYPE,
+      target: DBUSDC_COIN_TYPE,
+      amount: minBalance.toString(),
+      byAmountIn: true,
+    });
+
+    if (!routers?.paths?.length) {
+      console.warn("[execute] Cetus: no route from USDC to DBUSDC — sponsor needs DBUSDC directly");
+      return null;
+    }
+
+    const txb = new Transaction();
+    await cetusClient.fastRouterSwap({
+      router: routers,
+      slippage: 0.05,
+      txb,
+      sponsored: true,
+    });
+
+    const sponsored = await deps.gasSponsor.sponsorTransaction(txb);
+    const result = await deps.gasSponsor.executeTransaction(sponsored);
+
+    if (result.error) {
+      console.warn(`[execute] Cetus USDC→DBUSDC swap failed: ${result.error}`);
+      return null;
+    }
+
+    console.log(`[execute] USDC→DBUSDC swap succeeded: ${result.digest}`);
+
+    // 4) Find the newly created DBUSDC coin
+    const dbusdc = await findSponsorCoin(client, owner, DBUSDC_COIN_TYPE, minBalance);
+    return dbusdc;
+  } catch (e) {
+    console.warn(`[execute] failed to acquire DBUSDC: ${e instanceof Error ? e.message : String(e)}`);
+    return null;
+  }
+}
 
 async function handleDeepBookSwap(
   deps: ExecuteDeps,
   cardId: string,
   card: { id: string; cap_id: string; card_obj_id: string; user_id: string },
   req: ExecuteRequest,
-  usdcCoinId: string,
   recipient: string,
   now: number,
 ): Promise<Receipt> {
-  const store = deps.store;
   const client = deps.suiClient ?? SUI_CLIENT;
+  const owner = deps.gasSponsor.sponsorAddress;
+  const direction = req.action as SwapDirection;
 
-  const deepCoinId = await findSponsorCoin(client, deps.gasSponsor.sponsorAddress, DEEP_COIN_TYPE, 10_000_000n);
+  // Determine which coin we need to find based on the swap direction:
+  // - swap_exact_quote_for_base: selling the quote coin (DBUSDC), buying the base
+  // - swap_exact_base_for_quote: selling the base coin (SUI/etc), buying the quote (DBUSDC)
+  const sellingQuote = direction === "swap_exact_quote_for_base";
+
+  let coinInId: string | null;
+  let coinInType: string;
+
+  if (sellingQuote) {
+    // Selling DBUSDC → need DBUSDC coin (acquire from Circle USDC if needed)
+    coinInType = DBUSDC_COIN_TYPE;
+    coinInId = await findOrAcquireDBUSDC(deps, req.amountAtoms);
+    if (!coinInId) {
+      throw new RefusalError(
+        "invalid_terms",
+        "DeepBook: no DBUSDC available for swap. Sponsor needs DBUSDC (or Circle USDC to auto-convert) on testnet. Try: acquire_dbusdc first, or use Cetus instead.",
+      );
+    }
+  } else {
+    // Selling the base coin (e.g. SUI) → find the base coin
+    coinInType = req.sellCoinType;
+    coinInId = await findSponsorCoin(client, owner, req.sellCoinType, req.amountAtoms);
+    if (!coinInId) {
+      throw new RefusalError(
+        "invalid_terms",
+        `DeepBook: no ${req.sellCoinType} coins available for swap. Sponsor does not hold enough of the sell coin.`,
+      );
+    }
+  }
+
+  // DEEP fee coin: try to find an existing one, or create a zero-balance one
+  const deepCoinId = await findSponsorCoin(client, owner, DEEP_COIN_TYPE, 10_000_000n);
 
   const poolId = req.poolId ?? DEEPBOOK_DEFAULT_POOL;
   const minOut = req.minOutAtoms ?? 0n;
-  const direction = req.action as SwapDirection;
 
   const tx = buildDeepBookSwapPTB({
     poolId,
     direction,
-    coinIn: usdcCoinId,
-    coinInType: req.sellCoinType,
+    coinIn: coinInId,
+    coinInType,
     coinOutType: req.buyCoinType,
     deepCoinId: deepCoinId ?? null,
     minOut,
@@ -83,8 +178,6 @@ async function handleCetusSwap(
   recipient: string,
   now: number,
 ): Promise<Receipt> {
-  // Use the Cetus AggregatorClient to find routes and build the swap PTB
-  // The SDK auto-creates a SuiGrpcClient when none is provided
   const cetusClient = new AggregatorClient({
     env: Env.Testnet,
     signer: deps.gasSponsor.sponsorAddress,
@@ -99,7 +192,10 @@ async function handleCetusSwap(
   });
 
   if (!routers || !routers.paths || routers.paths.length === 0) {
-    throw new RefusalError("invalid_terms", "Cetus: no swap routes found for this pair on testnet — Circle USDC may not be listed in Cetus testnet pools");
+    throw new RefusalError(
+      "invalid_terms",
+      `Cetus: no swap routes found for ${req.sellCoinType} → ${req.buyCoinType} on testnet`,
+    );
   }
   if (routers.insufficientLiquidity) {
     throw new RefusalError("invalid_terms", "Cetus: insufficient liquidity for this pair");
@@ -169,7 +265,7 @@ async function executeAndLog(
     request_id: result.digest,
   });
 
-  // Fire-and-forget on-chain ChargeLog — use on-chain Card object ID, not UUID
+  // Fire-and-forget on-chain ChargeLog
   const logTx = buildLogChargePTB({
     cardId: card.card_obj_id,
     capId: card.cap_id,
@@ -246,18 +342,18 @@ export async function executeOperation(
   validateSpend(sd, chain, spendReq, req.amountAtoms, now);
 
   const sponsorAddress = deps.gasSponsor.sponsorAddress;
-
-  const usdcCoinId = await findSponsorCoin(client, sponsorAddress, USDC_COIN_TYPE, req.amountAtoms);
-  if (!usdcCoinId) {
-    throw new RefusalError("invalid_terms", "sponsor has insufficient USDC for this swap");
-  }
-
   const user = store.getUser(card.user_id);
   const recipient = user?.address ?? sponsorAddress;
 
   if (req.protocol === "cetus") {
+    // Cetus: find Circle USDC coin for the card budget deduction
+    const usdcCoinId = await findSponsorCoin(client, sponsorAddress, USDC_COIN_TYPE, req.amountAtoms);
+    if (!usdcCoinId) {
+      throw new RefusalError("invalid_terms", "sponsor has insufficient Circle USDC for this Cetus swap");
+    }
     return handleCetusSwap(deps, cardId, card, req, usdcCoinId, recipient, now);
   }
 
-  return handleDeepBookSwap(deps, cardId, card, req, usdcCoinId, recipient, now);
+  // DeepBook: coin discovery is handled inside handleDeepBookSwap (DBUSDC or base coin)
+  return handleDeepBookSwap(deps, cardId, card, req, recipient, now);
 }

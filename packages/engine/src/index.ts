@@ -2,7 +2,7 @@
 export const ENGINE_VERSION = "1.0.0";
 
 // Sui config
-export { SUI_CLIENT, SUIPASS_PACKAGE_ID, USDC_COIN_TYPE, CLOCK_OBJECT_ID, moveErrorToRefusal } from "./sui";
+export { SUI_CLIENT, SUIPASS_PACKAGE_ID, USDC_COIN_TYPE, DBUSDC_COIN_TYPE, DEEP_COIN_TYPE, CLOCK_OBJECT_ID, moveErrorToRefusal } from "./sui";
 export type { SuiNetwork } from "./sui";
 
 // PTB builders
@@ -49,7 +49,7 @@ export { RefusalError, EngineError } from "./errors";
 export { KeyedMutex } from "./mutex";
 
 // Execute (DeepBook / protocol operations)
-export { executeOperation } from "./execute";
+export { executeOperation, findOrAcquireDBUSDC } from "./execute";
 export type { ExecuteDeps, ExecuteRequest, ExecuteProtocol } from "./execute";
 
 // Types
