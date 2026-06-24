@@ -114,9 +114,11 @@ export async function issueRootCard(
   }
 
   // Extract created object IDs from effects
+  // NOTE: issue_root_card Move function returns (CardCap, Card) — Cap first, Card second.
+  // So created[0] is the CardCap, created[1] is the Card.
   const created = (result.effects?.created as Array<{ reference: { objectId: string } }>) ?? [];
-  const cardObj = created[0];
-  const capObj = created[1];
+  const capObj = created[0];  // CardCap (returned first)
+  const cardObj = created[1];  // Card (returned second)
 
   if (!cardObj || !capObj) {
     throw new EngineError("issuance", "card or cap object not created");
@@ -222,9 +224,10 @@ export async function issueSubCard(
     throw new EngineError("issuance", `failed to issue sub-card: ${result.error}`);
   }
 
+  // NOTE: issue_subcard Move function returns (CardCap, Card) — Cap first, Card second (same as issue_root_card)
   const created = (result.effects?.created as Array<{ reference: { objectId: string } }>) ?? [];
-  const cardObj = created[0];
-  const capObj = created[1];
+  const capObj = created[0];  // CardCap (returned first)
+  const cardObj = created[1];  // Card (returned second)
   if (!cardObj || !capObj) {
     throw new EngineError("issuance", "sub-card or cap object not created");
   }
