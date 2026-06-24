@@ -271,36 +271,41 @@ export async function spend(deps: SpendDeps, cardId: string, req: SpendRequest):
       (e) => console.warn(`[spend] log_charge failed (non-fatal): ${e instanceof Error ? e.message : String(e)}`),
     );
 
-    // Fire-and-forget: store receipt to Walrus (if configured)
+    // Store receipt to Walrus (await so event log exists before spend() returns)
     if (deps.storeReceipt) {
-      deps.storeReceipt({
-        version: "1.0",
-        type: "suipass_charge_receipt",
-        charge_id: chargeId,
-        card_id: cardId,
-        card_name: card.name,
-        network: "sui-testnet",
-        amount_usdc: atomsToUsdc(amountAtoms),
-        fee_usdc: "0.00",
-        recipient,
-        transaction_digest: result.digest,
-        memo: req.memo ?? "",
-        kind: req.kind,
-        timestamp: now,
-        iso_timestamp: new Date(now * 1000).toISOString(),
-        verified: true,
-      }).then((id) => {
+      try {
+        const id = await deps.storeReceipt({
+          version: "1.0",
+          type: "suipass_charge_receipt",
+          charge_id: chargeId,
+          card_id: cardId,
+          card_name: card.name,
+          network: "sui-testnet",
+          amount_usdc: atomsToUsdc(amountAtoms),
+          fee_usdc: "0.00",
+          recipient,
+          transaction_digest: result.digest,
+          memo: req.memo ?? "",
+          kind: req.kind,
+          timestamp: now,
+          iso_timestamp: new Date(now * 1000).toISOString(),
+          verified: true,
+        });
         if (id) {
-          try { deps.store.insertEventLog({
-            id: crypto.randomUUID(),
-            card_id: cardId,
-            charge_id: chargeId,
-            type: "walrus_receipt",
-            data: JSON.stringify({ walrus_blob_id: id, charge_id: chargeId, tx_digest: result.digest }),
-            created_at: now,
-          }); } catch { /* non-fatal */ }
+          try {
+            deps.store.insertEventLog({
+              id: crypto.randomUUID(),
+              card_id: cardId,
+              charge_id: chargeId,
+              type: "walrus_receipt",
+              data: JSON.stringify({ walrus_blob_id: id, charge_id: chargeId, tx_digest: result.digest }),
+              created_at: now,
+            });
+          } catch { /* non-fatal */ }
         }
-      }).catch((e) => console.warn(`[spend] walrus store failed: ${e instanceof Error ? e.message : String(e)}`));
+      } catch (e) {
+        console.warn(`[spend] walrus store failed: ${e instanceof Error ? e.message : String(e)}`);
+      }
     }
 
     store.insertEventLog({

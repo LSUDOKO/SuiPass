@@ -289,7 +289,7 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
             if (log.type === "walrus_receipt") {
               try {
                 const data = JSON.parse(log.data) as Record<string, unknown>;
-                if (data.tx_digest === args.tx_digest || data.charge_id) {
+                if (data.tx_digest === args.tx_digest) {
                   blobId = data.walrus_blob_id as string;
                   if (blobId) break;
                 }
