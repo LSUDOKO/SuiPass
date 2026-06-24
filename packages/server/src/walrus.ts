@@ -6,14 +6,14 @@
 //   Publisher:  https://publisher.testnet.walrus.app/v1/blobs
 //   Aggregator: https://aggregator.testnet.walrus.app/v1/blobs/<blobId>
 
-const DEFAULT_PUBLISHER = "https://publisher.testnet.walrus.app";
-const DEFAULT_AGGREGATOR = "https://aggregator.testnet.walrus.app";
+const DEFAULT_PUBLISHER = "https://publisher.walrus-testnet.walrus.space";
+const DEFAULT_AGGREGATOR = "https://aggregator.walrus-testnet.walrus.space";
 
 function publisherUrl(): string {
   return process.env.WALRUS_PUBLISHER ?? DEFAULT_PUBLISHER;
 }
 
-function aggregatorUrl(): string {
+export function aggregatorUrl(): string {
   return process.env.WALRUS_AGGREGATOR ?? DEFAULT_AGGREGATOR;
 }
 

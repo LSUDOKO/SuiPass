@@ -313,7 +313,7 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
         }
 
         // Read from Walrus aggregator
-        const { readReceipt } = await import("../walrus");
+        const { readReceipt, aggregatorUrl } = await import("../walrus");
         const receipt = await readReceipt(blobId);
 
         if (!receipt) {
@@ -324,7 +324,7 @@ export function buildMcpServer(deps: AppDeps, card: CardRow): McpServer {
           verified: true,
           blob_id: blobId,
           receipt,
-          aggregator_url: `${process.env.WALRUS_AGGREGATOR ?? "https://aggregator.testnet.walrus.app"}/v1/blobs/${blobId}`,
+          aggregator_url: `${aggregatorUrl()}/v1/blobs/${blobId}`,
         };
       }),
   );
