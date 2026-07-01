@@ -2,7 +2,7 @@
   <img width="1584" height="396" alt="SUI" src="https://github.com/user-attachments/assets/f2716466-816e-4c70-b846-ac0ea39709cc" />
 </p>
 
-<p align="center"><strong>Agentic Spending Cards on Sui</strong></p>
+<p align="center"><strong>Agentic Spending Cards on Sui || [ PPT ]( https://www.canva.com/design/DAHOHifRLeE/CbpnBrzobSG6ff2UmVDQ1g/view?utm_content=DAHOHifRLeE&utm_campaign=designshare&utm_medium=link2&utm_source=uniquelinks&utlId=h7070b2e0e7)</strong></p>
 
 <p align="center">
   <a href="#features">Features</a> •
