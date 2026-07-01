@@ -31,6 +31,7 @@ AI agents need wallets to pay for data, APIs, compute, and on-chain actions. Tod
 - ❌ Agents can't pay gas — they have no SUI balance
 
 ### The Solution
+<img width="1684" height="818" alt="Screenshot 2026-07-01 at 14-00-23 Search DeepWiki" src="https://github.com/user-attachments/assets/515a0a22-934f-47b3-b3dd-3e285a396827" />
 
 ```
 ┌─────────────┐     ┌──────────────────┐     ┌──────────────┐
