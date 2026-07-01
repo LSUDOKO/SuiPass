@@ -296,6 +296,8 @@ Every `spend()` call enforces **all** of these atomically:
 | **DEEP** | `0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP` | [Suiscan](https://suiscan.xyz/testnet/coin/0xdeeb7a4662eec9f2e3f1a1c6a35d9f11e7e4e7a::deep::DEEP) |
 
 ### DeepBook Swap (Live, Testnet)
+<img width="1716" height="850" alt="Screenshot 2026-07-01 at 13-58-44 Search DeepWiki" src="https://github.com/user-attachments/assets/92ac1530-c454-4948-baa7-89ef5d75d8f2" />
+
 
 The `execute` tool routes USDC through **DeepBook V3** (Sui's native CLOB DEX) to exchange for SUI or other tokens within the card's budget. The PTB calls the pool module's `swap_exact_quote_for_base` or `swap_exact_base_for_quote` function atomically in one transaction. DeepBook V3 pool IDs and coin types are pulled from the `@mysten/deepbook-v3` SDK's canonical testnet constants.
 
@@ -308,6 +310,8 @@ The `execute` tool routes USDC through **DeepBook V3** (Sui's native CLOB DEX) t
 Swaps execute atomically within the card's budget — the `execute` tool validates the swap against the card's terms (per-tx cap, period budget, expiry) before broadcasting. The DeepBook V3 CLOB integration supports zero-slippage limit orders through the pool module's core swap functions. DEEP fee is optional — swaps work with zero DEEP via an on-chain zero-balance coin.
 
 ### Walrus Receipt Storage (Live, Testnet)
+<img width="1684" height="818" alt="Screenshot 2026-07-01 at 14-02-25 Search DeepWiki" src="https://github.com/user-attachments/assets/caa91a4d-a2cf-48eb-b6e9-37c403347062" />
+
 
 Every card payment, swap, and x402 transaction generates an on-chain `ChargeLog` object containing the amount, fee, recipient, memo, and transaction digest. These logs are optionally persisted to **Walrus**, Sui's verifiable data platform, for permanent, cross-agent audit trails.
 
